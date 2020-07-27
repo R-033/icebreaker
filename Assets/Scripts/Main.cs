@@ -12,6 +12,7 @@ using ELFSharp.ELF;
 using ELFSharp.ELF.Sections;
 using RuntimeGizmos;
 using UnityEngine.EventSystems;
+using World.Culling;
 
 public class Main : MonoBehaviour
 {
@@ -45,7 +46,8 @@ public class Main : MonoBehaviour
     private Dictionary<string, Transform> ObjectsOnScene = new Dictionary<string, Transform>();
     public Transform SceneRoot;
     private bool updlimit;
-    private int tabnum;
+    [HideInInspector]
+    public int tabnum;
     public Dropdown CameraTrackSelection;
     public Text CameraTrackPropertiesName;
 
@@ -725,12 +727,25 @@ public class Main : MonoBehaviour
     }
 
     private Vector3 oldfocus;
+    
+    public GameObject EnableWorldLoadingButton;
+    private bool WorldIsDisplayed;
+
+    public void EnableWorldLoading()
+    {
+        WorldIsDisplayed = true;
+        EnableWorldLoadingButton.SetActive(false);
+        WorldChunksStreamer.Initialize();
+        GetComponent<WorldChunksStreamer>().RequestInitialNeededChunks();
+        StartCoroutine(GetComponent<WorldChunksStreamer>().ChunksAutoOnDemandLoaderCoroutine());
+    }
 
     void UpdateGameSelection()
     {
         GameDirectory = PlayerPrefs.GetString("GameDir");
         foreach (GameObject obj in HiddenElementsNoGame)
             obj.SetActive(GameDirectory.Length > 0);
+        EnableWorldLoadingButton.SetActive(GameDirectory.Length > 0 && !WorldIsDisplayed);
         if (GameDirectory.Length > 0) {
             HelpText.text = "Current game directory: .../" + Path.GetFileName(GameDirectory);
             UpdateNisList();

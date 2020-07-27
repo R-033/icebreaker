@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ContentModelStore">
+    <e p="$USER_HOME$/Library/Caches/Rider2019.2/extResources" t="IncludeRecursive" />
+    <e p="$USER_HOME$/Library/Caches/Rider2019.2/resharper-host/local/Transient/ReSharperHost/v192/SolutionCaches/_icebreaker.1448778516.00" t="ExcludeRecursive" />
+    <e p="$PROJECT_DIR$" t="IncludeRecursive">
+      <e p="Assembly-CSharp.csproj" t="IncludeRecursive" />
+      <e p="Assets" t="Include">
+        <e p="RuntimeGizmo" t="Include">
+          <e p="Custom" t="Include">
+            <e p="TransformGizmoCustomGizmo.cs" t="Include" />
+          </e>
+          <e p="Helpers" t="Include">
+            <e p="ExtMathf.cs" t="Include" />
+            <e p="ExtTransform.cs" t="Include" />
+            <e p="ExtTransformType.cs" t="Include" />
+            <e p="ExtVector3.cs" t="Include" />
+            <e p="Geometry.cs" t="Include" />
+          </e>
+          <e p="Objects" t="Include">
+            <e p="AxisInfo.cs" t="Include" />
+            <e p="AxisVectors.cs" t="Include" />
+            <e p="Commands" t="Include">
+              <e p="SelectCommand.cs" t="Include" />
+              <e p="TransformCommand.cs" t="Include" />
+            </e>
+            <e p="Enums.cs" t="Include" />
+            <e p="IntersectPoints.cs" t="Include" />
+            <e p="Square.cs" t="Include" />
+            <e p="TargetInfo.cs" t="Include" />
+          </e>
+          <e p="Shader" t="Include">
+            <e p="Resources" t="Include">
+              <e p="Lines.shader" t="Include" />
+              <e p="Outline.shader" t="Include" />
+            </e>
+          </e>
+          <e p="TransformGizmo.cs" t="Include" />
+          <e p="UndoRedo" t="Include">
+            <e p="CommandGroup.cs" t="Include" />
+            <e p="DropoutStack.cs" t="Include" />
+            <e p="ICommand.cs" t="Include" />
+            <e p="UndoRedo.cs" t="Include" />
+            <e p="UndoRedoManager.cs" t="Include" />
+          </e>
+        </e>
+        <e p="Scripts" t="Include">
+          <e p="CoordDebug.cs" t="Include" />
+          <e p="Culling" t="Include">
+            <e p="WorldChunksStreamer.cs" t="Include" />
+          </e>
+          <e p="DragMouse.cs" t="Include" />
+          <e p="ELFSharp" t="Include">
+            <e p="ELF" t="Include">
+              <e p="Class.cs" t="Include" />
+              <e p="Consts.cs" t="Include" />
+              <e p="ELF.cs" t="Include" />
+              <e p="ELFReader.cs" t="Include" />
+              <e p="Endianess.cs" t="Include" />
+              <e p="FileType.cs" t="Include" />
+              <e p="IELF.cs" t="Include" />
+              <e p="Machine.cs" t="Include" />
+              <e p="Sections" t="Include">
+                <e p="DynamicEntry.cs" t="Include" />
+                <e p="DynamicSection.cs" t="Include" />
+                <e p="DynamicTag.cs" t="Include" />
+                <e p="IDynamicEntry.cs" t="Include" />
+                <e p="IDynamicSection.cs" t="Include" />
+                <e p="INoteSection.cs" t="Include" />
+                <e p="IProgBitsSection.cs" t="Include" />
+                <e p="ISection.cs" t="Include" />
+                <e p="IStringTable.cs" t="Include" />
+                <e p="ISymbolEntry.cs" t="Include" />
+                <e p="ISymbolTable.cs" t="Include" />
+                <e p="NoteData.cs" t="Include" />
+                <e p="NoteSection.cs" t="Include" />
+                <e p="ProgBitsSection.cs" t="Include" />
+                <e p="Section.cs" t="Include" />
+                <e p="SectionFlags.cs" t="Include" />
+                <e p="SectionHeader.cs" t="Include" />
+                <e p="SectionType.cs" t="Include" />
+                <e p="SpecialSectionIndex.cs" t="Include" />
+                <e p="SpecialSectionType.cs" t="Include" />
+                <e p="StringTable.cs" t="Include" />
+                <e p="SymbolBinding.cs" t="Include" />
+                <e p="SymbolEntry.cs" t="Include" />
+                <e p="SymbolTable.cs" t="Include" />
+                <e p="SymbolType.cs" t="Include" />
+              </e>
+              <e p="Segments" t="Include">
+                <e p="ISegment.cs" t="Include" />
+                <e p="Segment.cs" t="Include" />
+                <e p="SegmentFlags.cs" t="Include" />
+                <e p="SegmentType.cs" t="Include" />
+              </e>
+              <e p="Utilities.cs" t="Include" />
+            </e>
+            <e p="MachO" t="Include">
+              <e p="Command.cs" t="Include" />
+              <e p="CommandType.cs" t="Include" />
+              <e p="EntryPoint.cs" t="Include" />
+              <e p="FileType.cs" t="Include" />
+              <e p="Machine.cs" t="Include" />
+              <e p="MachO.cs" t="Include" />
+              <e p="MachOReader.cs" t="Include" />
+              <e p="MachOResult.cs" t="Include" />
+              <e p="Protection.cs" t="Include" />
+              <e p="Section.cs" t="Include" />
+              <e p="Segment.cs" t="Include" />
+              <e p="Symbol.cs" t="Include" />
+              <e p="SymbolTable.cs" t="Include" />
+            </e>
+            <e p="UImage" t="Include">
+              <e p="Architecture.cs" t="Include" />
+              <e p="CompressionType.cs" t="Include" />
+              <e p="ImageDataResult.cs" t="Include" />
+              <e p="ImageType.cs" t="Include" />
+              <e p="OS.cs" t="Include" />
+              <e p="UImage.cs" t="Include" />
+              <e p="UImageReader.cs" t="Include" />
+              <e p="UImageResult.cs" t="Include" />
+            </e>
+            <e p="Utilities" t="Include">
+              <e p="Extensions.cs" t="Include" />
+              <e p="SimpleEndianessAwareReader.cs" t="Include" />
+            </e>
+          </e>
+          <e p="Extensions" t="Include">
+            <e p="ArrayExt.cs" t="Include" />
+            <e p="SerializableDictionary.cs" t="Include" />
+          </e>
+          <e p="gridshader.shader" t="Include" />
+          <e p="LogMessage.cs" t="Include" />
+          <e p="Main.cs" t="Include" />
+          <e p="MaxCamera.cs" t="Include" />
+          <e p="ModTools" t="Include">
+            <e p="Common" t="Include">
+              <e p="BinaryUtil.cs" t="Include" />
+              <e p="ChunkData.cs" t="Include" />
+              <e p="ChunkManager.cs" t="Include" />
+              <e p="ChunkStream.cs" t="Include" />
+              <e p="Compression.cs" t="Include" />
+              <e p="Entity" t="Include">
+                <e p="Collision" t="Include">
+                  <e p="CollisionManager.cs" t="Include" />
+                  <e p="World15Collision.cs" t="Include" />
+                </e>
+                <e p="Data" t="Include">
+                  <e p="CollisionPack.cs" t="Include" />
+                </e>
+              </e>
+              <e p="GameDetector.cs" t="Include" />
+              <e p="Geometry" t="Include">
+                <e p="CarbonSolids.cs" t="Include" />
+                <e p="Data" t="Include">
+                  <e p="SolidList.cs" t="Include" />
+                </e>
+                <e p="MostWantedSolids.cs" t="Include" />
+                <e p="ProStreetSolids.cs" t="Include" />
+                <e p="SolidListManager.cs" t="Include" />
+                <e p="UndercoverSolids.cs" t="Include" />
+                <e p="Underground2Solids.cs" t="Include" />
+                <e p="UndergroundSolids.cs" t="Include" />
+                <e p="World15Solids.cs" t="Include" />
+              </e>
+              <e p="Hasher.cs" t="Include" />
+              <e p="MessageUtil.cs" t="Include" />
+              <e p="Properties" t="Include">
+                <e p="AssemblyInfo.cs" t="Include" />
+              </e>
+              <e p="Textures" t="Include">
+                <e p="CarbonTpk.cs" t="Include" />
+                <e p="Data" t="Include">
+                  <e p="DDSHeader.cs" t="Include" />
+                  <e p="DDSImage.cs" t="Include" />
+                  <e p="TexturePack.cs" t="Include" />
+                </e>
+                <e p="DelegateTpk.cs" t="Include" />
+                <e p="MostWantedTpk.cs" t="Include" />
+                <e p="TpkManager.cs" t="Include" />
+                <e p="UndercoverTpk.cs" t="Include" />
+                <e p="WorldTpk.cs" t="Include" />
+              </e>
+              <e p="TrackStream" t="Include">
+                <e p="CarbonManager.cs" t="Include" />
+                <e p="Data" t="Include">
+                  <e p="LocationBundle.cs" t="Include" />
+                  <e p="Vector3.cs" t="Include" />
+                </e>
+                <e p="GameBundleManager.cs" t="Include" />
+                <e p="MostWantedManager.cs" t="Include" />
+                <e p="ProStreetManager.cs" t="Include" />
+                <e p="UndercoverManager.cs" t="Include" />
+                <e p="World15Manager.cs" t="Include" />
+              </e>
+            </e>
+          </e>
+          <e p="MoveCameraEntry.cs" t="Include" />
+          <e p="NISEditor.cs" t="Include" />
+          <e p="NISLoader.cs" t="Include" />
+          <e p="ResizeCameraEntry.cs" t="Include" />
+        </e>
+        <e p="StandaloneFileBrowser" t="Include">
+          <e p="IStandaloneFileBrowser.cs" t="Include" />
+          <e p="StandaloneFileBrowser.cs" t="Include" />
+          <e p="StandaloneFileBrowserEditor.cs" t="Include" />
+          <e p="StandaloneFileBrowserLinux.cs" t="Include" />
+          <e p="StandaloneFileBrowserMac.cs" t="Include" />
+          <e p="StandaloneFileBrowserWindows.cs" t="Include" />
+        </e>
+      </e>
+      <e p="icebreaker.sln" t="IncludeFlat" />
+      <e p="obj" t="ExcludeRecursive" />
+      <e p="packages" t="ExcludeRecursive" />
+      <e p="Temp/bin" t="ExcludeRecursive" />
+    </e>
+  </component>
+</project>

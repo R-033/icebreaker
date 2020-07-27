@@ -732,14 +732,17 @@ public class NISLoader : MonoBehaviour
 												continue; // todo
 											default:
 												Debug.LogError("Unsupported texture format " + textures[h].CompressionType);
-												break;
+												continue;
 										}
 
-										Texture2D text = new Texture2D((int) textures[h].Width, (int) textures[h].Height, format, false);
-										text.LoadRawTextureData(im);
-										text.Apply(false);
-										materials[i].mainTexture = text;
-										materials[i].mainTextureScale = new Vector2(1f, -1f);
+										try
+										{
+											Texture2D text = new Texture2D((int) textures[h].Width, (int) textures[h].Height, format, false);
+											text.LoadRawTextureData(im);
+											text.Apply(false);
+											materials[i].mainTexture = text;
+											materials[i].mainTextureScale = new Vector2(1f, -1f);
+										} catch { }
 									}
 
 									materialcache.Add(solidObject.TextureHashes[mat.TextureIndices[0]], materials[i]);
