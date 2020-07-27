@@ -484,7 +484,7 @@ public class NISLoader : MonoBehaviour
 				break;
 			case "q":
 				Vector3 rot = Quaternion.Lerp(new Quaternion(eval.Item1[0], eval.Item1[1], eval.Item1[2], eval.Item1[3]), new Quaternion(eval.Item2[0], eval.Item2[1], eval.Item2[2], eval.Item2[3]), eval.Item3).eulerAngles;
-				target.eulerAngles = new Vector3(rot.x, 90f - rot.z, rot.y);
+				target.eulerAngles = new Vector3(-rot.y, 90f - rot.z, rot.x);
 				break;
 		}
 	}

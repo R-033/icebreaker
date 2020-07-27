@@ -296,8 +296,8 @@ public class Main : MonoBehaviour
                         {
                             //if (EditingAnimation_q.type == NISLoader.AnimType.ANIM_COMPOUND)
                             //    EditingAnimation_q = EditingAnimation_q.subAnimations[0];
-                            RootValues[3].text = currentlyEditingSubObject.transform.eulerAngles.x.ToString(CultureInfo.InvariantCulture);
-                            RootValues[4].text = currentlyEditingSubObject.transform.eulerAngles.z.ToString(CultureInfo.InvariantCulture);
+                            RootValues[3].text = currentlyEditingSubObject.transform.eulerAngles.z.ToString(CultureInfo.InvariantCulture);
+                            RootValues[4].text = (-currentlyEditingSubObject.transform.eulerAngles.x).ToString(CultureInfo.InvariantCulture);
                             RootValues[5].text = (-(currentlyEditingSubObject.transform.eulerAngles.y - 90f)).ToString(CultureInfo.InvariantCulture);
                         }
                     } else if (BoneSubEdit.activeSelf)
