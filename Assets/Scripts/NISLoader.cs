@@ -1275,12 +1275,12 @@ public class NISLoader : MonoBehaviour
 		return output;
 	}
 
-	public static (int, uint, List<(CameraTrackHeader, CameraTrackEntry[])>) LoadCameraTrack(string nisname, string gamepath)
+	public static (int, List<(CameraTrackHeader, CameraTrackEntry[])>) LoadCameraTrack(string nisname, string gamepath)
 	{
 		return LookupCamera(gamepath, BinHash(nisname));
 	}
 
-	public static (int, uint, List<(CameraTrackHeader, CameraTrackEntry[])>) LookupCamera(string gamepath, uint NISHashNeeded)
+	public static (int, List<(CameraTrackHeader, CameraTrackEntry[])>) LookupCamera(string gamepath, uint NISHashNeeded)
 	{
 		byte[] f;
 		string path = "/GLOBAL/InGameB.lzc";
@@ -1289,7 +1289,7 @@ public class NISLoader : MonoBehaviour
 		else if (File.Exists(gamepath + path.ToUpper()))
 			f = File.ReadAllBytes(gamepath + path.ToUpper());
 		else
-			return (0, 0, new List<(CameraTrackHeader, CameraTrackEntry[])>());
+			return (0, new List<(CameraTrackHeader, CameraTrackEntry[])>());
 		f = DecompressJZC(f);
 		int offset = 0;
 		int CameraTrackHeader_size = Marshal.SizeOf(typeof(CameraTrackHeader));
@@ -1297,16 +1297,22 @@ public class NISLoader : MonoBehaviour
 		int idd = 0;
 		List<(CameraTrackHeader, CameraTrackEntry[])> output = new List<(CameraTrackHeader, CameraTrackEntry[])>();
 		int _offset = 0;
-		uint somehash = 0;
+        int size = 0;
 		try
 		{
 			for (int i = 0; i < f.Length; i += 4)
 			{
-				if (f[i] == 0x10 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x00)
+                if (f[i] == 0x00 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x80)
+                {
+                    i += 4;
+                    SizeOffset = i;
+                }
+                if (f[i] == 0x10 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x00)
 				{
 					_offset = i;
 					i += 4;
-					int end = i + BitConverter.ToInt32(f, i);
+                    size = BitConverter.ToInt32(f, i);
+                    int end = i + size;
 					i += 4;
 					idd++;
 					uint NISHash = BitConverter.ToUInt32(f, i);
@@ -1319,9 +1325,9 @@ public class NISLoader : MonoBehaviour
 					}
 
 					i += 4;
-					somehash = BitConverter.ToUInt32(f, i);
-					i += 4;
-					while (i < end - 8 && i < f.Length) // todo add to CXMW
+					int count = BitConverter.ToInt32(f, i); // todo add to CXMW
+                    i += 4;
+					for (int num = 0; num < count; num++) // todo add to CXMW
 					{
 						CameraTrackHeader header = (CameraTrackHeader) CoordDebug.RawDeserialize(f, i, typeof(CameraTrackHeader));
 						i += CameraTrackHeader_size;
@@ -1343,8 +1349,10 @@ public class NISLoader : MonoBehaviour
 		{
 			Debug.LogError(e);
 		}
-		return (_offset, somehash, output);
+		return (_offset, output);
 	}
+
+    public static int SizeOffset;
 
 	public static uint BinHash(string k)
 	{

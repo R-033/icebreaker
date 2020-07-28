@@ -625,7 +625,7 @@ public class Main : MonoBehaviour
         {
             SceneCamera.transform.position = ObjectsOnScene[alreadyDid[focusobj]].position - ObjectsOnScene[alreadyDid[focusobj]].forward * 6f + Vector3.up * 2f;
             SceneCamera.transform.LookAt(ObjectsOnScene[alreadyDid[focusobj]].position + Vector3.up * 1.5f);
-            SceneCamera.focalLength = 50f;
+            SceneCamera.focalLength = 25f;
             return;
         }
 
@@ -865,7 +865,7 @@ public class Main : MonoBehaviour
             anims = new List<NISLoader.Animation>();
             skeletons = new List<NISLoader.Skeleton>();
             LoggingMode = 2;
-            (cameratrack_offset, somecamhash, cameratrack) = NISLoader.LookupCamera(GameDirectory, hash);
+            (cameratrack_offset, cameratrack) = NISLoader.LookupCamera(GameDirectory, hash);
             LoggingMode = 0;
             foreach (GameObject obj in HiddenWhenNoNIS)
                 obj.SetActive(false);
@@ -884,7 +884,7 @@ public class Main : MonoBehaviour
 
             NISLoader.SceneType sceneType = (NISLoader.SceneType) NISLoader.SceneInfo.SceneType;
             LoggingMode = 2;
-            (cameratrack_offset, somecamhash, cameratrack) = NISLoader.LoadCameraTrack(nisname, GameDirectory);
+            (cameratrack_offset, cameratrack) = NISLoader.LoadCameraTrack(nisname, GameDirectory);
             /*for (int i = 0; i < cameratrack[0].Item2.Length; i++)
             {
                 Debug.Log("entry " + i + " " + cameratrack[0].Item2[i].Time);
@@ -1495,8 +1495,6 @@ public class Main : MonoBehaviour
         UpdateGameSelection();
     }
 
-    private uint somecamhash;
-
     public void Save()
     {
         byte[] f_orig;
@@ -1795,15 +1793,19 @@ public class Main : MonoBehaviour
                     f = f_orig.ToList();
                     List<byte> chunk = new List<byte>();
                     chunk.AddRange(BitConverter.GetBytes(NISLoader.BinHash(nisname)));
-                    chunk.AddRange(BitConverter.GetBytes(somecamhash));
+                    chunk.AddRange(BitConverter.GetBytes(cameratrack.Count));
                     for (int i = 0; i < cameratrack.Count; i++)
                     {
-                        chunk.AddRange(CoordDebug.RawSerialize(cameratrack[i].Item1));
+                        var hh = cameratrack[i].Item1;
+                        hh.entryCount = (short)cameratrack[i].Item2.Length;
+                        chunk.AddRange(CoordDebug.RawSerialize(hh));
                         for (int j = 0; j < cameratrack[i].Item2.Length; j++)
                             chunk.AddRange(CoordDebug.RawSerialize(cameratrack[i].Item2[j]));
                     }
 
                     oldsize = BitConverter.ToInt32(f_orig, cameratrack_offset + 4);
+                    f.RemoveRange(NISLoader.SizeOffset, 4);
+                    f.InsertRange(NISLoader.SizeOffset, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, NISLoader.SizeOffset) + (chunk.Count - oldsize)));
                     f.RemoveRange(cameratrack_offset + 4, 4);
                     f.InsertRange(cameratrack_offset + 4, BitConverter.GetBytes(chunk.Count));
                     f.RemoveRange(cameratrack_offset + 8, oldsize);
