@@ -53,8 +53,6 @@ public class Main : MonoBehaviour
 
     public Text[] NISProps;
     public Text[] CamProps;
-    public InputField ForceYValue;
-    public Toggle forceplayerY;
     public Text segmenttitle;
 
     public Text TimeText;
@@ -67,6 +65,7 @@ public class Main : MonoBehaviour
     public GameObject FloorGrid;
 
     public InputField NewCameraTrackName;
+    public InputField NewCameraTrackBytes;
 
     private bool _playing;
     [HideInInspector]
@@ -198,20 +197,12 @@ public class Main : MonoBehaviour
 
     private float timeinsec;
     private bool forceY;
-    private bool forceYusePlayerY;
-    private float parsedforcedY;
 
     public void UpdateForceY(bool enable)
     {
         forceY = enable;
     }
 
-    public void UpdateForceY2(bool enable)
-    {
-        forceYusePlayerY = enable;
-        ForceYValue.interactable = !enable;
-    }
-    
     private Vector3 dragOrigin;
     
     public static float InverseLerpUnclamped(float a, float b, float value)
@@ -269,6 +260,7 @@ public class Main : MonoBehaviour
                     playing = false;
                 if (Input.GetKeyDown(KeyCode.Q))
                     interpolation_start = timeline;
+                gizmo.YAllowed = !forceY;
                 timeline = Mathf.Round(timeinsec * 15f) / 15f / totalLength;
                 PreviewTimeline[5].value = Mathf.Round(timeinsec * 15f);
                 PreviewTimeline[6].value = interpolation_start;
@@ -398,9 +390,40 @@ public class Main : MonoBehaviour
                 }
                 break;
             case 3:
-                if (Input.GetKeyDown(KeyCode.L) && TimelineLockToggle.interactable)
+                if (Input.GetKey(KeyCode.LeftControl))
                 {
-                    TimelineLockToggle.isOn = !TimelineLock;
+                    if (Input.GetKeyDown(KeyCode.L) && TimelineLockToggle.interactable)
+                    {
+                        TimelineLockToggle.isOn = !TimelineLock;
+                    }
+                    else if (Input.GetKeyDown(KeyCode.S))
+                    {
+                        SegmentEditAction(1);
+                    }
+                    else if (Input.GetKeyDown(KeyCode.N))
+                    {
+                        SegmentEditAction(4);
+                    }
+                    else if (Input.GetKeyDown(KeyCode.LeftArrow))
+                    {
+                        SegmentEditAction(2);
+                    }
+                    else if (Input.GetKeyDown(KeyCode.RightArrow))
+                    {
+                        SegmentEditAction(3);
+                    }
+                    else if (Input.GetKeyDown(KeyCode.D))
+                    {
+                        SegmentEditAction(5);
+                    }
+                    else if (Input.GetKeyDown(KeyCode.C))
+                    {
+                        SegmentEditAction(6);
+                    }
+                    else if (Input.GetKeyDown(KeyCode.V))
+                    {
+                        SegmentEditAction(7);
+                    }
                 }
                 float localt = InverseLerpUnclamped(editorTimelineMin, editorTimelineMax, timeline);
                 if (PreviewTimeline[1].value != Mathf.Clamp01(localt))
@@ -464,9 +487,10 @@ public class Main : MonoBehaviour
                             CameraEditValues[12].text = cameratrack[curcam].Item2[cursegment].unk12.ToString(CultureInfo.InvariantCulture);
                             break;
                         default:
-                            for (int i = 0; i < cameratrack[curcam].Item2[cursegment].attributes.Length; i++)
+                            for (int i = 0; i < 12; i++)
                                 CameraEditFlags[i].text = cameratrack[curcam].Item2[cursegment].attributes[i].ToString("X");
-                            CameraEditFlags[16].text = BitConverter.ToString(cameratrack[curcam].Item2[cursegment].unk13);
+                            CameraEditFlags[12].text = string.Join("-", BitConverter.ToString(cameratrack[curcam].Item2[cursegment].attributes, 12, 4).Split('-').Reverse().ToArray());
+                            CameraEditFlags[13].text = BitConverter.ToString(cameratrack[curcam].Item2[cursegment].unk13);
                             break;
                     }
                 }
@@ -527,7 +551,7 @@ public class Main : MonoBehaviour
             }
         }
 
-        if ((tabnum == 3 || tabnum == 4) && EventSystem.current.currentSelectedGameObject == null && !RealtimeCameraEditActive)
+        if ((tabnum == 3 || tabnum == 4) && EventSystem.current.currentSelectedGameObject == null && !RealtimeCameraEditActive && !Input.GetKey(KeyCode.LeftControl))
         {
             if (Input.GetKeyDown(KeyCode.Space))
                 TogglePlay();
@@ -574,35 +598,15 @@ public class Main : MonoBehaviour
             else if (Input.GetKeyDown(KeyCode.End))
                 timeline = TimelineLock && cameratrack.Count > 0 && cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time - 0.001f : 1f;
         }
-
-        if (forceY)
-        {
-            if (forceYusePlayerY)
-            {
-                ForceYValue.text = ObjectsOnScene["Car1"].transform.position.y.ToString(CultureInfo.InvariantCulture);
-                FloorGrid.transform.position = new Vector3((tabnum < 3 ? EditorCamera : SceneCamera).transform.position.x, ObjectsOnScene["Car1"].transform.position.y, (tabnum < 3 ? EditorCamera : SceneCamera).transform.position.z);
-            }
-            else
-            {
-                try
-                {
-                    parsedforcedY = float.Parse(ForceYValue.text, CultureInfo.InvariantCulture);
-                    FloorGrid.transform.position = new Vector3((tabnum < 3 ? EditorCamera : SceneCamera).transform.position.x, parsedforcedY, (tabnum < 3 ? EditorCamera : SceneCamera).transform.position.z);
-                }
-                catch
-                {
-                }
-            }
-        }
-        else
-            FloorGrid.transform.position = new Vector3((tabnum < 3 ? EditorCamera : SceneCamera).transform.position.x, 0f, (tabnum < 3 ? EditorCamera : SceneCamera).transform.position.z);
+        
+        FloorGrid.transform.position = new Vector3((tabnum < 3 ? EditorCamera : SceneCamera).transform.position.x, 0f, (tabnum < 3 ? EditorCamera : SceneCamera).transform.position.z);
 
         if (!gizmo.isTransforming)
         {
             timeinsec = timeline * totalLength;
             foreach (NISLoader.Animation anim in anims)
             {
-                NISLoader.ApplyCarMovement(ObjectsOnScene, anim, timeinsec, forceY, forceYusePlayerY, parsedforcedY);
+                NISLoader.ApplyCarMovement(ObjectsOnScene, anim, timeinsec, forceY);
             }
             for (int sk = 0; sk < skeletons.Count; sk++)
             {
@@ -881,6 +885,10 @@ public class Main : MonoBehaviour
             NISLoader.SceneType sceneType = (NISLoader.SceneType) NISLoader.SceneInfo.SceneType;
             LoggingMode = 2;
             (cameratrack_offset, somecamhash, cameratrack) = NISLoader.LoadCameraTrack(nisname, GameDirectory);
+            /*for (int i = 0; i < cameratrack[0].Item2.Length; i++)
+            {
+                Debug.Log("entry " + i + " " + cameratrack[0].Item2[i].Time);
+            }*/
             LoggingMode = 0;
             foreach (GameObject obj in HiddenWhenNoNIS)
                 obj.SetActive(anims.Count > 0);
@@ -995,9 +1003,6 @@ public class Main : MonoBehaviour
         editorTimelineMin = 0f;
         editorTimelineMax = 1f;
         ChangeCameraTrack(0);
-        forceplayerY.interactable = ObjectsOnScene.ContainsKey("Car1");
-        if (!forceplayerY.interactable)
-            forceplayerY.isOn = false;
         TimelineLock = false;
         TimelineLockToggle.isOn = false;
     }
@@ -1377,12 +1382,14 @@ public class Main : MonoBehaviour
         if (RealtimeCameraEditActive)
             ToggleCameraControl();
         NewCameraTrackName.text = cameratrack.Count > 0 ? cameratrack[curcam].Item1.TrackName : "";
+        NewCameraTrackBytes.text = cameratrack.Count > 0 ? BitConverter.ToString(cameratrack[curcam].Item1.Unknown1) : "";
         GenCameraTrackPreview();
         GenCameraSplines();
         UpdateTitle();
         //timeline = 0f;
         playing = false;
         oldsegment = -1;
+        RemoveCameraButton.interactable = cameratrack.Count > 1;
     }
 
     void GenCameraTrackPreview()
@@ -1928,10 +1935,78 @@ public class Main : MonoBehaviour
     {
         var v = cameratrack[curcam].Item1;
         v.TrackName = NewCameraTrackName.text;
-        cameratrack[curcam] = (v, cameratrack[curcam].Item2);
         CameraTrackSelection.options[curcam].text = NewCameraTrackName.text;
+        if (RealtimeCameraEditActive)
+            ToggleCameraControl();
+        float val = cameratrack[curcam].Item1.Duration;
+        try
+        {
+            val = float.Parse(DurationField.text, CultureInfo.InvariantCulture);
+        } catch {}
+        v.Duration = val;
+        try
+        {
+            string[] ss = NewCameraTrackBytes.text.Split('-');
+            for (int i = 0; i < v.Unknown1.Length; i++)
+                v.Unknown1[i] = (byte) Convert.ToInt32(ss[i], 16);
+        } catch {}
+        cameratrack[curcam] = (v, cameratrack[curcam].Item2);
+        ChangeCameraTrack(curcam);
         UpdateTitle();
     }
+
+    public void NewCameraTrack()
+    {
+        if (RealtimeCameraEditActive)
+            ToggleCameraControl();
+        NISLoader.CameraTrackHeader header = new NISLoader.CameraTrackHeader();
+        header.TrackName = NewCameraTrackName.text;
+        float val = cameratrack[curcam].Item1.Duration;
+        try
+        {
+            val = float.Parse(DurationField.text, CultureInfo.InvariantCulture);
+        } catch {}
+
+        header.Unknown1 = new byte[16];
+        try
+        {
+            string[] ss = NewCameraTrackBytes.text.Split('-');
+            for (int i = 0; i < header.Unknown1.Length; i++)
+                header.Unknown1[i] = (byte) Convert.ToInt32(ss[i], 16);
+        }
+        catch
+        {
+            for (int i = 0; i < header.Unknown1.Length; i++)
+                header.Unknown1[i] = cameratrack[curcam].Item1.Unknown1[i];
+        }
+        header.Duration = val;
+        header.entryCount = cameratrack[curcam].Item1.entryCount;
+        NISLoader.CameraTrackEntry[] entries = new NISLoader.CameraTrackEntry[cameratrack[curcam].Item2.Length];
+        for (int i = 0; i < entries.Length; i++)
+            entries[i] = cameratrack[curcam].Item2[i].Clone();
+        cameratrack.Add((header, entries));
+        Dropdown.OptionData opt = new Dropdown.OptionData();
+        opt.text = header.TrackName;
+        CameraTrackSelection.options.Add(opt);
+        CameraTrackSelection.value = 0;
+        CameraTrackSelection.value = cameratrack.Count - 1;
+        ChangeCameraTrack(cameratrack.Count - 1);
+    }
+
+    public void RemoveCameraTrack()
+    {
+        if (cameratrack.Count <= 1) return;
+        if (RealtimeCameraEditActive)
+            ToggleCameraControl();
+        cameratrack.RemoveAt(curcam);
+        CameraTrackSelection.options.RemoveAt(curcam);
+        int oldcur = curcam;
+        CameraTrackSelection.value = 0;
+        CameraTrackSelection.value = Mathf.Min(oldcur, cameratrack.Count - 1);
+        ChangeCameraTrack(CameraTrackSelection.value);
+    }
+
+    public Button RemoveCameraButton;
 
     public Dropdown actionDropdown;
 
@@ -1945,11 +2020,13 @@ public class Main : MonoBehaviour
         NISLoader.CameraTrackEntry cur_entry;
         actionDropdown.value = 0;
         num -= 1;
+        NISLoader.camrec rec;
+        (NISLoader.camrec, NISLoader.camrec) split_result;
         switch (num)
         {
             case 0:
-                NISLoader.camrec rec = new NISLoader.camrec(cameratrack[curcam].Item2[cursegment]);
-                (NISLoader.camrec, NISLoader.camrec) split_result = rec.SplitInTwo(cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time : 1f);
+                rec = new NISLoader.camrec(cameratrack[curcam].Item2[cursegment]);
+                split_result = rec.SplitInTwo(cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time : 1f);
                 entries = cameratrack[curcam].Item2.ToList();
                 entries[cursegment] = split_result.Item1.e;
                 entries.Insert(cursegment + 1, split_result.Item2.e);
@@ -2009,10 +2086,10 @@ public class Main : MonoBehaviour
                 UpdCameraTrackPreview();
                 break;
             case 3:
-                base_entry = new NISLoader.CameraTrackEntry();
+                rec = new NISLoader.camrec(cameratrack[curcam].Item2[cursegment]);
+                split_result = rec.SplitInTwo(cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time : 1f);
+                base_entry = split_result.Item2.e;
                 cur_entry = cameratrack[curcam].Item2[cursegment];
-                base_entry.Time = timeline;
-                base_entry.attributes = (byte[])cur_entry.attributes.Clone();
                 base_entry.unk5 = cur_entry.unk6;
                 base_entry.EyeX = cur_entry.EyeX2;
                 base_entry.EyeZ = cur_entry.EyeZ2;
@@ -2039,7 +2116,6 @@ public class Main : MonoBehaviour
                 base_entry.Amp2 = cur_entry.Amp2;
                 base_entry.Freq2 = cur_entry.Freq2;
                 base_entry.unk12 = cur_entry.unk12;
-                base_entry.unk13 = (byte[])cur_entry.unk13.Clone();
                 entries = cameratrack[curcam].Item2.ToList();
                 entries.Insert(cursegment + 1, base_entry);
                 cameratrack[curcam] = (cameratrack[curcam].Item1, entries.ToArray());
@@ -2083,6 +2159,9 @@ public class Main : MonoBehaviour
                 }
                 break;
         }
+        var h = cameratrack[curcam].Item1;
+        h.entryCount = (short)cameratrack[curcam].Item2.Length;
+        cameratrack[curcam] = (h, cameratrack[curcam].Item2);
     }
 
     public Material LineMaterial;
@@ -2129,14 +2208,14 @@ public class Main : MonoBehaviour
                 {
                     eval = NISLoader.EvaluateAnim(anim_pos, e.Time * cameratrack[curcam].Item1.Duration);
                     player_car_position = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
-                    player_car_position = new Vector3(player_car_position.x, forceY ? forceYusePlayerY ? player_car_position.y : parsedforcedY : player_car_position.y, player_car_position.z);
+                    player_car_position = new Vector3(player_car_position.x, forceY ? NISLoader.GetGroundY(player_car_position) : player_car_position.y, player_car_position.z);
                     eval = NISLoader.EvaluateAnim(anim_rot, e.Time * cameratrack[curcam].Item1.Duration);
                     player_car_rotation = Quaternion.Lerp(new Quaternion(eval.Item1[0], eval.Item1[1], eval.Item1[2], eval.Item1[3]), new Quaternion(eval.Item2[0], eval.Item2[1], eval.Item2[2], eval.Item2[3]), eval.Item3);
                     startpos = player_car_position + Quaternion.Euler(0f, -90f + (90f - player_car_rotation.z), 0f) * startpos;
 
                     eval = NISLoader.EvaluateAnim(anim_pos, (i < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[i + 1].Time : 1f) * cameratrack[curcam].Item1.Duration);
                     player_car_position = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
-                    player_car_position = new Vector3(player_car_position.x, forceY ? forceYusePlayerY ? player_car_position.y : parsedforcedY : player_car_position.y, player_car_position.z);
+                    player_car_position = new Vector3(player_car_position.x, forceY ? NISLoader.GetGroundY(player_car_position) : player_car_position.y, player_car_position.z);
                     eval = NISLoader.EvaluateAnim(anim_rot, (i < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[i + 1].Time : 1f) * cameratrack[curcam].Item1.Duration);
                     player_car_rotation = Quaternion.Lerp(new Quaternion(eval.Item1[0], eval.Item1[1], eval.Item1[2], eval.Item1[3]), new Quaternion(eval.Item2[0], eval.Item2[1], eval.Item2[2], eval.Item2[3]), eval.Item3);
                     endpos = player_car_position + Quaternion.Euler(0f, -90f + (90f - player_car_rotation.z), 0f) * startpos;
@@ -2170,14 +2249,14 @@ public class Main : MonoBehaviour
                 {
                     eval = NISLoader.EvaluateAnim(anim_pos, e.Time * cameratrack[curcam].Item1.Duration);
                     player_car_position = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
-                    player_car_position = new Vector3(player_car_position.x, forceY ? forceYusePlayerY ? player_car_position.y : parsedforcedY : player_car_position.y, player_car_position.z);
+                    player_car_position = new Vector3(player_car_position.x, forceY ? NISLoader.GetGroundY(player_car_position) : player_car_position.y, player_car_position.z);
                     eval = NISLoader.EvaluateAnim(anim_rot, e.Time * cameratrack[curcam].Item1.Duration);
                     player_car_rotation = Quaternion.Lerp(new Quaternion(eval.Item1[0], eval.Item1[1], eval.Item1[2], eval.Item1[3]), new Quaternion(eval.Item2[0], eval.Item2[1], eval.Item2[2], eval.Item2[3]), eval.Item3);
                     startpos = player_car_position + Quaternion.Euler(0f, -90f + (90f - player_car_rotation.z), 0f) * startpos;
 
                     eval = NISLoader.EvaluateAnim(anim_pos, (i < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[i + 1].Time : 1f) * cameratrack[curcam].Item1.Duration);
                     player_car_position = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
-                    player_car_position = new Vector3(player_car_position.x, forceY ? forceYusePlayerY ? player_car_position.y : parsedforcedY : player_car_position.y, player_car_position.z);
+                    player_car_position = new Vector3(player_car_position.x, forceY ? NISLoader.GetGroundY(player_car_position) : player_car_position.y, player_car_position.z);
                     eval = NISLoader.EvaluateAnim(anim_rot, (i < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[i + 1].Time : 1f) * cameratrack[curcam].Item1.Duration);
                     player_car_rotation = Quaternion.Lerp(new Quaternion(eval.Item1[0], eval.Item1[1], eval.Item1[2], eval.Item1[3]), new Quaternion(eval.Item2[0], eval.Item2[1], eval.Item2[2], eval.Item2[3]), eval.Item3);
                     endpos = player_car_position + Quaternion.Euler(0f, -90f + (90f - player_car_rotation.z), 0f) * startpos;
@@ -2254,7 +2333,7 @@ public class Main : MonoBehaviour
     public void CameraFlagsUpdated()
     {
         if (playing || !allow_changes) return;
-        for (int i = 0; i < cameratrack[curcam].Item2[cursegment].attributes.Length; i++)
+        for (int i = 0; i < 12; i++)
         {
             try {
                 cameratrack[curcam].Item2[cursegment].attributes[i] = (byte) Convert.ToInt32(CameraEditFlags[i].text, 16);
@@ -2262,7 +2341,14 @@ public class Main : MonoBehaviour
         }
         try
         {
-            string[] ss = CameraEditFlags[16].text.Split('-');
+            string[] ss = CameraEditFlags[12].text.Split('-');
+            int ind = 3;
+            for (int i = 12; i < 16; i++)
+                cameratrack[curcam].Item2[cursegment].attributes[i] = (byte) Convert.ToInt32(ss[ind--], 16);
+        } catch {}
+        try
+        {
+            string[] ss = CameraEditFlags[13].text.Split('-');
             for (int i = 0; i < cameratrack[curcam].Item2[cursegment].unk13.Length; i++)
                 cameratrack[curcam].Item2[cursegment].unk13[i] = (byte) Convert.ToInt32(ss[i], 16);
         } catch {}
@@ -2271,23 +2357,6 @@ public class Main : MonoBehaviour
 
     public InputField DurationField;
     public bool TimelineLock;
-
-    public void UpdateCameraDuration()
-    {
-        if (RealtimeCameraEditActive)
-            ToggleCameraControl();
-        float val = cameratrack[curcam].Item1.Duration;
-        try
-        {
-            val = float.Parse(DurationField.text, CultureInfo.InvariantCulture);
-        } catch {}
-        if (val == cameratrack[curcam].Item1.Duration)
-            return;
-        var h = cameratrack[curcam].Item1;
-        h.Duration = val;
-        cameratrack[curcam] = (h, cameratrack[curcam].Item2);
-        ChangeCameraTrack(curcam);
-    }
 
     public void UpdateTimelineLock(bool enable)
     {

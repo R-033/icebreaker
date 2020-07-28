@@ -464,7 +464,15 @@ public class NISLoader : MonoBehaviour
 		return splines;
 	}
 
-	public static void ApplyCarMovement(Dictionary<string, Transform> players, Animation anim, float t, bool forceY, bool forceYcar1, float y)
+	public static float GetGroundY(Vector3 pos)
+	{
+		RaycastHit hit;
+		if (Physics.Raycast(pos + Vector3.up * 2000f, Vector3.down, out hit, 4000f, 1))
+			return hit.point.y;
+		return pos.y;
+	}
+
+	public static void ApplyCarMovement(Dictionary<string, Transform> players, Animation anim, float t, bool forceY)
 	{
 		string animtype = anim.name.Split('_').Last();
 		string objname = anim.GetObjectName();
@@ -479,7 +487,7 @@ public class NISLoader : MonoBehaviour
 		{
 			case "t":
 				Vector3 target_pos = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
-				Vector3 targetposition = new Vector3(target_pos.x, forceY ? forceYcar1 ? objname == "Car1" ? target_pos.y : players["Car1"].transform.position.y : y : target_pos.y, target_pos.z);
+				Vector3 targetposition = new Vector3(target_pos.x, forceY ? GetGroundY(target_pos) : target_pos.y, target_pos.z);
 				target.position = targetposition;
 				break;
 			case "q":

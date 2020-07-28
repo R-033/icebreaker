@@ -432,6 +432,12 @@ namespace World.Culling
 
 			obj.GetComponent<MeshFilter>().sharedMesh = mesh;
 			obj.GetComponent<MeshRenderer>().sharedMaterials = materials;
+
+			if (obj.transform.position == Vector3.zero)
+			{
+				MeshCollider col = obj.AddComponent<MeshCollider>();
+				col.sharedMesh = mesh;
+			}
             
             FinishRegister[chunk.ID]++;
         }
