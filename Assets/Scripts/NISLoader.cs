@@ -311,7 +311,26 @@ public class NISLoader : MonoBehaviour
 			return Lerp1dCurve(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
 		}
 
-		Vector3 GetPoint(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t) {
+        public float GetTimeScale(float t) // todo add to cxmw
+        {
+            float p1, p2, p3, p4;
+            if (cam.Count == 1)
+            {
+                p1 = cam[0].e.unk13[4];
+                p2 = cam[0].e.unk13[5];
+                if (Main.CameraSmoothingEnabled)
+                    return Mathf.SmoothStep(p1, p2, t);
+                return Mathf.Lerp(p1, p2, t);
+            }
+            int i = ind(ref t);
+            p1 = cam[i].e.unk13[4];
+            p2 = cam[i].e.unk13[5];
+            p3 = cam[i + 1].e.unk13[4];
+            p4 = cam[i + 1].e.unk13[5];
+            return Lerp1dCurve(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
+        }
+
+        Vector3 GetPoint(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t) {
 			t = Mathf.Clamp01(t);
 			float oneMinusT = 1f - t;
 			return
@@ -409,6 +428,7 @@ public class NISLoader : MonoBehaviour
 		float freq = spline.GetFreq(progression);
 		target.transform.Rotate(new Vector3(amp * Mathf.Sin(t * freq), amp * Mathf.Sin(t * 2f * freq), spline.GetTangent(progression) * 360f), Space.Self);
 		target.focalLength = spline.GetFocalLength(progression);
+        Main.timescale = spline.GetTimeScale(progression) * 0.01f;
 	}
 
 	public static float CalculateNISDuration(List<Animation> anims)

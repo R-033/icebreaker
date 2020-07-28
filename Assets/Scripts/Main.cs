@@ -224,6 +224,8 @@ public class Main : MonoBehaviour
     public float minimapScale;
     public RectTransform MinimapIcon;
 
+    public static float timescale = 1f;
+
     void Update()
     {
         if (Screen.fullScreen)
@@ -234,7 +236,7 @@ public class Main : MonoBehaviour
         updlimit = false;
         if (playing)
         {
-            timeline += Time.deltaTime / totalLength;
+            timeline += Time.deltaTime * timescale / totalLength;
             if (TimelineLock && cameratrack.Count > 0)
             {
                 float max = cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time - 0.001f : 1f;
@@ -470,6 +472,7 @@ public class Main : MonoBehaviour
                             CameraEditValues[10].text = cameratrack[curcam].Item2[cursegment].Amp.ToString(CultureInfo.InvariantCulture);
                             CameraEditValues[11].text = cameratrack[curcam].Item2[cursegment].Freq.ToString(CultureInfo.InvariantCulture);
                             CameraEditValues[12].text = cameratrack[curcam].Item2[cursegment].unk11.ToString(CultureInfo.InvariantCulture);
+                            CameraEditValues[13].text = cameratrack[curcam].Item2[cursegment].unk13[4].ToString();
                             break;
                         case 1:
                             CameraEditValues[0].text = cameratrack[curcam].Item2[cursegment].unk6.ToString(CultureInfo.InvariantCulture);
@@ -485,12 +488,13 @@ public class Main : MonoBehaviour
                             CameraEditValues[10].text = cameratrack[curcam].Item2[cursegment].Amp2.ToString(CultureInfo.InvariantCulture);
                             CameraEditValues[11].text = cameratrack[curcam].Item2[cursegment].Freq2.ToString(CultureInfo.InvariantCulture);
                             CameraEditValues[12].text = cameratrack[curcam].Item2[cursegment].unk12.ToString(CultureInfo.InvariantCulture);
+                            CameraEditValues[13].text = cameratrack[curcam].Item2[cursegment].unk13[5].ToString();
                             break;
                         default:
                             for (int i = 0; i < 12; i++)
                                 CameraEditFlags[i].text = cameratrack[curcam].Item2[cursegment].attributes[i].ToString("X");
                             CameraEditFlags[12].text = string.Join("-", BitConverter.ToString(cameratrack[curcam].Item2[cursegment].attributes, 12, 4).Split('-').Reverse().ToArray());
-                            CameraEditFlags[13].text = BitConverter.ToString(cameratrack[curcam].Item2[cursegment].unk13);
+                            CameraEditFlags[13].text = BitConverter.ToString(cameratrack[curcam].Item2[cursegment].unk13, 0, 4);
                             break;
                     }
                 }
@@ -523,7 +527,6 @@ public class Main : MonoBehaviour
                                     OverlayDebug.text = "Unknown overlay is shown (" + cameratrack[curcam].Item2[i].attributes[10].ToString("X") + ")";
                                     break;
                             }
-
                             break;
                         }
                     }
@@ -2373,6 +2376,7 @@ public class Main : MonoBehaviour
                 try { cameratrack[curcam].Item2[cursegment].Amp = float.Parse(CameraEditValues[10].text, CultureInfo.InvariantCulture); } catch {}
                 try { cameratrack[curcam].Item2[cursegment].Freq = float.Parse(CameraEditValues[11].text, CultureInfo.InvariantCulture); } catch {}
                 try { cameratrack[curcam].Item2[cursegment].unk11 = float.Parse(CameraEditValues[12].text, CultureInfo.InvariantCulture); } catch {}
+                try { cameratrack[curcam].Item2[cursegment].unk13[4] = byte.Parse(CameraEditValues[13].text, CultureInfo.InvariantCulture); } catch { }
                 break;
             default:
                 try { cameratrack[curcam].Item2[cursegment].unk6 = float.Parse(CameraEditValues[0].text, CultureInfo.InvariantCulture); } catch {}
@@ -2388,6 +2392,7 @@ public class Main : MonoBehaviour
                 try { cameratrack[curcam].Item2[cursegment].Amp2 = float.Parse(CameraEditValues[10].text, CultureInfo.InvariantCulture); } catch {}
                 try { cameratrack[curcam].Item2[cursegment].Freq2 = float.Parse(CameraEditValues[11].text, CultureInfo.InvariantCulture); } catch {}
                 try { cameratrack[curcam].Item2[cursegment].unk12 = float.Parse(CameraEditValues[12].text, CultureInfo.InvariantCulture); } catch {}
+                try { cameratrack[curcam].Item2[cursegment].unk13[5] = byte.Parse(CameraEditValues[13].text, CultureInfo.InvariantCulture); } catch { }
                 break;
         }
         GenCameraSplines();
@@ -2412,7 +2417,7 @@ public class Main : MonoBehaviour
         try
         {
             string[] ss = CameraEditFlags[13].text.Split('-');
-            for (int i = 0; i < cameratrack[curcam].Item2[cursegment].unk13.Length; i++)
+            for (int i = 0; i < 4; i++)
                 cameratrack[curcam].Item2[cursegment].unk13[i] = (byte) Convert.ToInt32(ss[i], 16);
         } catch {}
         GenCameraSplines();
