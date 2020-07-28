@@ -315,6 +315,10 @@ namespace World.Culling
 	        return argb;
         }
 
+        Dictionary<uint, Mesh> cache_1 = new Dictionary<uint, Mesh>();
+        Dictionary<uint, Material[]> cache_2 = new Dictionary<uint, Material[]>();
+        List<uint> loading = new List<uint>();
+
         private IEnumerator LoadingSubWait(Chunk chunk, int ins, Transform parent)
         {
             CoordDebug.SceneryInstanceStruct inst = chunk.sectionInfo.instanceArray[ins];
@@ -343,8 +347,37 @@ namespace World.Culling
                 new Vector3(inst.Rot00, inst.Rot02, inst.Rot01).magnitude / 8192f,
                 upwards.magnitude / 8192f,
                 forward.magnitude / 8192f);
-            
-            yield return 0;
+
+            bool loaded = cache_1.ContainsKey(inf.NameHash0);
+            if (!loaded)
+            {
+                if (loading.Contains(inf.NameHash0))
+                {
+                    do
+                    {
+                        yield return 0;
+                    } while (loading.Contains(inf.NameHash0));
+                    loaded = true;
+                }
+            }
+
+            if (loaded)
+            {
+                obj.GetComponent<MeshFilter>().sharedMesh = cache_1[inf.NameHash0];
+                obj.GetComponent<MeshRenderer>().sharedMaterials = cache_2[inf.NameHash0];
+
+                if (obj.transform.position == Vector3.zero)
+                {
+                    MeshCollider col = obj.AddComponent<MeshCollider>();
+                    col.sharedMesh = cache_1[inf.NameHash0];
+                }
+
+                FinishRegister[chunk.ID]++;
+
+                yield break;
+            }
+
+            loading.Add(inf.NameHash0);
             
             Material[] materials = new Material[solidObject.Materials.Count];
 			for (int i = 0; i < materials.Length; i++)
@@ -440,6 +473,10 @@ namespace World.Culling
 			}
             
             FinishRegister[chunk.ID]++;
+
+            cache_1.Add(inf.NameHash0, mesh);
+            cache_2.Add(inf.NameHash0, materials);
+            loading.Remove(inf.NameHash0);
         }
         
         Dictionary<string, int> FinishRegister = new Dictionary<string, int>();

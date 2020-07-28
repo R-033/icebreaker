@@ -263,7 +263,7 @@ public class Main : MonoBehaviour
                 gizmo.YAllowed = !forceY;
                 timeline = Mathf.Round(timeinsec * 15f) / 15f / totalLength;
                 PreviewTimeline[5].value = Mathf.Round(timeinsec * 15f);
-                PreviewTimeline[6].value = interpolation_start;
+                PreviewTimeline[6].value = interpolation_start * (Mathf.Round(totalLength * 15f) / PreviewTimeline[5].maxValue);
                 CoordText.text = editorCameraMovement.target.position.x.ToString("0.00", CultureInfo.InvariantCulture) + "," + editorCameraMovement.target.position.z.ToString("0.00", CultureInfo.InvariantCulture) + "," + editorCameraMovement.target.position.y.ToString("0.00", CultureInfo.InvariantCulture);
                 foreach (InputField f in RootValues)
                     f.interactable = !gizmo.isTransforming;
@@ -1060,7 +1060,6 @@ public class Main : MonoBehaviour
             }
             entry.GetComponent<Toggle>().onValueChanged.AddListener(x => AnimationsEditorSubObjectSelected(nnn));
         }
-        AnimationsEditorSubObjectSelected(0);
         float max = 0f;
         EditingAnimation_t = null;
         EditingAnimation_q = null;
@@ -1069,21 +1068,22 @@ public class Main : MonoBehaviour
         {
             if (an.name.EndsWith("_" + currentlyEditingObject + "_t"))
             {
-                max = Mathf.Max(PreviewTimeline[5].maxValue, (an.subAnimations.Count == 0 ? an.delta.Length : an.subAnimations[0].delta.Length) - 1);
+                max = Mathf.Max(max, (an.subAnimations.Count == 0 ? an.delta.Length : an.subAnimations[0].delta.Length) - 1);
                 EditingAnimation_t = an;
             }
             if (an.name.EndsWith("_" + currentlyEditingObject + "_q"))
             {
-                max = Mathf.Max(PreviewTimeline[5].maxValue, (an.subAnimations.Count == 0 ? an.delta.Length : an.subAnimations[0].delta.Length) - 1);
+                max = Mathf.Max(max, (an.subAnimations.Count == 0 ? an.delta.Length : an.subAnimations[0].delta.Length) - 1);
                 EditingAnimation_q = an;
             }
             if (an.name.EndsWith("_" + currentlyEditingObject + "_s"))
             {
-                max = Mathf.Max(PreviewTimeline[5].maxValue, (an.subAnimations.Count == 0 ? an.delta.Length : an.subAnimations[0].delta.Length) - 1);
+                max = Mathf.Max(max, (an.subAnimations.Count == 0 ? an.delta.Length : an.subAnimations[0].delta.Length) - 1);
                 EditingAnimation_s = an;
             }
         }
         PreviewTimeline[5].maxValue = max;
+        AnimationsEditorSubObjectSelected(0);
     }
 
     void ProcessObjChildren(Transform tr, List<string> l, string deepness)
@@ -1132,6 +1132,9 @@ public class Main : MonoBehaviour
             BoneSubEdit.SetActive(false);
             LayoutSubEdit.SetActive(subobjs.Count > 1);
             gizmo.AllowTransformationSwitch = true;
+            deltacountinp.interactable = EditingAnimation_t != null;
+            deltacountinp.text = EditingAnimation_t != null ? EditingAnimation_t.subAnimations[0].delta.Length.ToString() : "";
+            deltacountinpb.interactable = deltacountinp.interactable;
             return;
         }
         currentlyEditingSubObject = subobjs[objindex];
@@ -1143,6 +1146,9 @@ public class Main : MonoBehaviour
         BoneSubEdit.SetActive(true);
         LayoutSubEdit.SetActive(false);
         gizmo.AllowTransformationSwitch = false;
+        deltacountinp.interactable = false;
+        deltacountinp.text = "";
+        deltacountinpb.interactable = deltacountinp.interactable;
     }
 
     public InputField[] RootValues;
@@ -1823,6 +1829,61 @@ public class Main : MonoBehaviour
         SavedText.color = Color.white;
     }
 
+    public InputField deltacountinp;
+    public Button deltacountinpb;
+
+    public void ApplyDeltaCount()
+    {
+        short val = 0;
+        short old_v = 0;
+        try {
+            val = short.Parse(deltacountinp.text);
+        } catch { return; }
+        if (val < 1) return;
+        if (EditingAnimation_t != null)
+        {
+            var d = EditingAnimation_t.subAnimations[0].delta;
+            old_v = (short)d.Length;
+            float[][] new_d = new float[val][];
+            for (int i = 0; i < val; i++)
+            {
+                new_d[i] = d[Mathf.Clamp(i, 0, old_v - 1)];
+            }
+            EditingAnimation_t.subAnimations[0].delta = new_d;
+        }
+        if (EditingAnimation_s != null)
+        {
+            var d = EditingAnimation_s.subAnimations[0].delta;
+            old_v = (short)d.Length;
+            float[][] new_d = new float[val][];
+            for (int i = 0; i < val; i++)
+            {
+                new_d[i] = d[Mathf.Clamp(i, 0, old_v - 1)];
+            }
+            EditingAnimation_s.subAnimations[0].delta = new_d;
+        }
+        if (EditingAnimation_q != null)
+        {
+            var d = EditingAnimation_q.subAnimations[0].delta;
+            old_v = (short)d.Length;
+            if (old_v == 0)
+            {
+                d = new float[1][];
+                d[0] = new float[EditingAnimation_q.subAnimations[0].numDofs];
+                for (int i = 0; i < d[0].Length; i++)
+                    d[0][i] = EditingAnimation_q.subAnimations[0].header[i][2];
+                old_v = 1;
+            }
+            float[][] new_d = new float[val][];
+            for (int i = 0; i < val; i++)
+            {
+                new_d[i] = d[Mathf.Clamp(i, 0, old_v - 1)];
+            }
+            EditingAnimation_q.subAnimations[0].delta = new_d;
+        }
+        AnimationsEditorObjectSelected(currentlyEditingObject);
+    }
+ 
     public static int ELFChunkSize;
     public static int ELFChunkStart;
     public static int ELFData_Offset;
@@ -1925,7 +1986,7 @@ public class Main : MonoBehaviour
             UpdCameraTrackPreview();
     }
 
-    public static bool CameraSmoothingEnabled;
+    public static bool CameraSmoothingEnabled = true;
 
     public void UpdateCameraSmoothing(bool enable)
     {
