@@ -2,7 +2,6 @@ using System;
 using UnityEngine;
 using System.Collections.Generic;
 using System.Collections;
-using CommandUndoRedo;
 
 namespace RuntimeGizmos
 {
@@ -156,8 +155,6 @@ namespace RuntimeGizmos
 
 		void Update()
 		{
-			HandleUndoRedo();
-
 			SetSpaceAndType();
 
 			if(manuallyHandleGizmo)
@@ -262,23 +259,6 @@ namespace RuntimeGizmos
 			}
 
 			return color;
-		}
-
-		void HandleUndoRedo()
-		{
-			if(maxUndoStored != UndoRedoManager.maxUndoStored) { UndoRedoManager.maxUndoStored = maxUndoStored; }
-
-			if(Input.GetKey(ActionKey))
-			{
-				if(Input.GetKeyDown(UndoAction))
-				{
-					UndoRedoManager.Undo();
-				}
-				else if(Input.GetKeyDown(RedoAction))
-				{
-					UndoRedoManager.Redo();
-				}
-			}
 		}
 
 		//We only support scaling in local space.
@@ -397,12 +377,6 @@ namespace RuntimeGizmos
 			Vector3 currentSnapMovementAmount = Vector3.zero;
 			float currentSnapRotationAmount = 0;
 			float currentSnapScaleAmount = 0;
-
-			List<ICommand> transformCommands = new List<ICommand>();
-			for(int i = 0; i < targetRootsOrdered.Count; i++)
-			{
-				transformCommands.Add(new TransformCommand(this, targetRootsOrdered[i]));
-			}
 
 			while(!Input.GetMouseButtonUp(0))
 			{
@@ -585,14 +559,6 @@ namespace RuntimeGizmos
 				yield return null;
 			}
 
-			for(int i = 0; i < transformCommands.Count; i++)
-			{
-				((TransformCommand)transformCommands[i]).StoreNewTransformValues();
-			}
-			CommandGroup commandGroup = new CommandGroup();
-			commandGroup.Set(transformCommands);
-			UndoRedoManager.Insert(commandGroup);
-
 			totalRotationAmount = Quaternion.identity;
 			totalScaleAmount = 0;
 			isTransforming = false;
@@ -682,14 +648,12 @@ namespace RuntimeGizmos
 			}
 		}
 
-		public void AddTarget(Transform target, bool addCommand = true)
+		public void AddTarget(Transform target)
 		{
 			if(target != null)
 			{
 				if(targetRoots.ContainsKey(target)) return;
 				if(children.Contains(target)) return;
-
-				if(addCommand) UndoRedoManager.Insert(new AddTargetCommand(this, target, targetRootsOrdered));
 
 				AddTargetRoot(target);
 				AddTargetHighlightedRenderers(target);
@@ -698,13 +662,11 @@ namespace RuntimeGizmos
 			}
 		}
 
-		public void RemoveTarget(Transform target, bool addCommand = true)
+		public void RemoveTarget(Transform target)
 		{
 			if(target != null)
 			{
 				if(!targetRoots.ContainsKey(target)) return;
-
-				if(addCommand) UndoRedoManager.Insert(new RemoveTargetCommand(this, target));
 
 				RemoveTargetHighlightedRenderers(target);
 				RemoveTargetRoot(target);
@@ -713,10 +675,8 @@ namespace RuntimeGizmos
 			}
 		}
 
-		public void ClearTargets(bool addCommand = true)
+		public void ClearTargets()
 		{
-			if(addCommand) UndoRedoManager.Insert(new ClearTargetsCommand(this, targetRootsOrdered));
-
 			ClearAllHighlightedRenderers();
 			targetRoots.Clear();
 			targetRootsOrdered.Clear();
@@ -725,10 +685,8 @@ namespace RuntimeGizmos
 
 		void ClearAndAddTarget(Transform target)
 		{
-			UndoRedoManager.Insert(new ClearAndAddTargetCommand(this, target, targetRootsOrdered));
-
-			ClearTargets(false);
-			AddTarget(target, false);
+			ClearTargets();
+			AddTarget(target);
 		}
 
 		void AddTargetHighlightedRenderers(Transform target)

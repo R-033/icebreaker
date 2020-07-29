@@ -34,6 +34,15 @@ public class NISLoader : MonoBehaviour
 
 		[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 17)]
 		public string TrackName;
+		
+		public CameraTrackHeader Clone()
+		{
+			CameraTrackHeader clone = (CameraTrackHeader)MemberwiseClone();
+			clone.Unknown1 = new byte[16];
+			for (int i = 0; i < 16; i++)
+				clone.Unknown1[i] = Unknown1[i];
+			return clone;
+		}
 	}
 
 	// 132 bytes
@@ -77,8 +86,18 @@ public class NISLoader : MonoBehaviour
 
 		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
 		public byte[] unk13;
-		
-		public CameraTrackEntry Clone() { return (CameraTrackEntry)MemberwiseClone(); }
+
+		public CameraTrackEntry Clone() // todo add in cxmw
+		{
+			CameraTrackEntry clone = (CameraTrackEntry)MemberwiseClone();
+			clone.attributes = new byte[16];
+			for (int i = 0; i < 16; i++)
+				clone.attributes[i] = attributes[i];
+			clone.unk13 = new byte[8];
+			for (int i = 0; i < 8; i++)
+				clone.unk13[i] = unk13[i];
+			return clone;
+		}
 	}
 
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]

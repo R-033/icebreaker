@@ -20,10 +20,6 @@
           <e p="Objects" t="Include">
             <e p="AxisInfo.cs" t="Include" />
             <e p="AxisVectors.cs" t="Include" />
-            <e p="Commands" t="Include">
-              <e p="SelectCommand.cs" t="Include" />
-              <e p="TransformCommand.cs" t="Include" />
-            </e>
             <e p="Enums.cs" t="Include" />
             <e p="IntersectPoints.cs" t="Include" />
             <e p="Square.cs" t="Include" />
@@ -36,13 +32,6 @@
             </e>
           </e>
           <e p="TransformGizmo.cs" t="Include" />
-          <e p="UndoRedo" t="Include">
-            <e p="CommandGroup.cs" t="Include" />
-            <e p="DropoutStack.cs" t="Include" />
-            <e p="ICommand.cs" t="Include" />
-            <e p="UndoRedo.cs" t="Include" />
-            <e p="UndoRedoManager.cs" t="Include" />
-          </e>
         </e>
         <e p="Scripts" t="Include">
           <e p="CoordDebug.cs" t="Include" />

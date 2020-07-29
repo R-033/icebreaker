@@ -46,8 +46,7 @@ public class Main : MonoBehaviour
     private Dictionary<string, Transform> ObjectsOnScene = new Dictionary<string, Transform>();
     public Transform SceneRoot;
     private bool updlimit;
-    [HideInInspector]
-    public int tabnum;
+    [HideInInspector] public int tabnum;
     public Dropdown CameraTrackSelection;
     public Text CameraTrackPropertiesName;
 
@@ -68,15 +67,14 @@ public class Main : MonoBehaviour
     public InputField NewCameraTrackBytes;
 
     private bool _playing;
-    [HideInInspector]
-    public int curcam;
+    [HideInInspector] public int curcam;
 
     public MaxCamera editorCameraMovement;
 
     public Texture2D[] Cursors;
 
-    public RuntimeGizmos.TransformGizmo gizmo;
-    public RuntimeGizmos.TransformGizmo gizmo2;
+    public TransformGizmo gizmo;
+    public TransformGizmo gizmo2;
 
     public Transform LineRenderers;
     public Transform FocusSphere;
@@ -86,15 +84,22 @@ public class Main : MonoBehaviour
     public GameObject AboutPage;
 
     private static int curs;
+
     public static int CursorType
     {
         get => curs;
         set
         {
             curs = value;
-            try {
+            try
+            {
                 Cursor.SetCursor(FindObjectOfType<Main>().Cursors[value], new Vector2(10f, 10f), CursorMode.Auto);
-            } catch {};
+            }
+            catch
+            {
+            }
+
+            ;
         }
     }
 
@@ -107,6 +112,7 @@ public class Main : MonoBehaviour
             PlayButtonText.text = _playing ? "Pause" : "Play";
         }
     }
+
     public float timeline;
     public Slider[] PreviewTimeline;
 
@@ -118,10 +124,10 @@ public class Main : MonoBehaviour
 
     public static Transform _LogMessageParent;
     public static GameObject _LogMessagePrefab;
-    
+
     public Transform LogMessageParent;
     public GameObject LogMessagePrefab;
-    
+
     static void HandleException(string condition, string stackTrace, LogType type)
     {
         if (type == LogType.Exception || type == LogType.Error)
@@ -145,6 +151,7 @@ public class Main : MonoBehaviour
                         obj.transform.GetComponent<LogMessage>().message = err;
                         obj.transform.GetComponent<LogMessage>().pinned = true;
                     }
+
                     break;
                 case 2:
                     if (!CameraSaveDisabled)
@@ -156,9 +163,11 @@ public class Main : MonoBehaviour
                         obj.transform.GetComponent<LogMessage>().message = err;
                         obj.transform.GetComponent<LogMessage>().pinned = true;
                     }
+
                     break;
             }
-        } else if (type == LogType.Log)
+        }
+        else if (type == LogType.Log)
         {
             GameObject obj = Instantiate(_LogMessagePrefab, _LogMessageParent);
             obj.transform.GetChild(0).GetComponent<Text>().text = condition;
@@ -166,6 +175,8 @@ public class Main : MonoBehaviour
             obj.transform.GetComponent<LogMessage>().message = condition;
         }
     }
+
+    public Button[] HistoryButtons;
 
     void Start()
     {
@@ -204,16 +215,15 @@ public class Main : MonoBehaviour
     }
 
     private Vector3 dragOrigin;
-    
+
     public static float InverseLerpUnclamped(float a, float b, float value)
     {
         if (a != b)
             return (value - a) / (b - a);
         return 0.0f;
     }
-    
-    [HideInInspector]
-    public int cursegment;
+
+    [HideInInspector] public int cursegment;
     private int oldsegment = -1;
     private bool allow_changes;
 
@@ -221,15 +231,517 @@ public class Main : MonoBehaviour
     private string[] copied_flags;
     private float interpolation_start;
 
-    public float minimapScale;
-    public RectTransform MinimapIcon;
-
     public static float timescale = 1f;
+
+    abstract class HistoryEntry
+    {
+        public abstract void Apply();
+
+        public abstract void Restore();
+    }
+
+    class EditCameraSegment : HistoryEntry
+    {
+        public EditCameraSegment(int _track, int _index, NISLoader.CameraTrackEntry _oldentry, NISLoader.CameraTrackEntry _newentry)
+        {
+            track = _track;
+            index = _index;
+            oldentry = _oldentry;
+            newentry = _newentry;
+        }
+
+        private int track;
+        private int index;
+        private NISLoader.CameraTrackEntry oldentry;
+        private NISLoader.CameraTrackEntry newentry;
+
+        public override void Apply()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.cameratrack[track].Item2[index] = newentry;
+            main.GenCameraSplines();
+            main.oldsegment = -1;
+        }
+
+        public override void Restore()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.cameratrack[track].Item2[index] = oldentry;
+            main.GenCameraSplines();
+            main.oldsegment = -1;
+        }
+
+        public override string ToString()
+        {
+            return "segment #" + (index + 1) + " edit";
+        }
+    }
+
+    class SplitSegment : HistoryEntry
+    {
+        public SplitSegment(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry)
+        {
+            track = _track;
+            index = _index;
+            timeline = _timeline;
+            oldentry = _oldentry;
+        }
+
+        private int track;
+        private int index;
+        private float timeline;
+        private NISLoader.CameraTrackEntry oldentry;
+        internal int actionNum = 1;
+
+        public override void Apply()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.timeline = timeline;
+            main.curcam = track;
+            for (int i = 0; i < main.cameratrack[track].Item2.Length; i++)
+            {
+                if (timeline >= main.cameratrack[track].Item2[i].Time && (i == main.cameratrack[track].Item2.Length - 1 || timeline < main.cameratrack[track].Item2[i + 1].Time))
+                {
+                    main.cursegment = i;
+                    break;
+                }
+            }
+
+            main.dontUseHistory = true;
+            main.SegmentEditAction(actionNum);
+            main.dontUseHistory = false;
+        }
+
+        public override void Restore()
+        {
+            Main main = FindObjectOfType<Main>();
+            if (main.TimelineLockToggle.isOn)
+                main.TimelineLockToggle.isOn = false;
+            var entries = main.cameratrack[track].Item2.ToList();
+            entries[index] = oldentry;
+            entries.RemoveAt(index + 1);
+            main.cameratrack[track] = (main.cameratrack[track].Item1, entries.ToArray());
+            main.GenCameraTrackPreview();
+            main.GenCameraSplines();
+            main.UpdCameraTrackPreview();
+        }
+
+        public override string ToString()
+        {
+            return "split segment";
+        }
+    }
+
+    class CreateSegment : SplitSegment
+    {
+        public CreateSegment(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry) : base(_track, _index, _timeline, _oldentry)
+        {
+            actionNum = 4;
+        }
+
+        public override string ToString()
+        {
+            return "new segment";
+        }
+    }
+
+    class RemoveSegment : HistoryEntry
+    {
+        public RemoveSegment(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry, float _oldtime)
+        {
+            track = _track;
+            index = _index;
+            timeline = _timeline;
+            oldentry = _oldentry;
+            oldtime = _oldtime;
+        }
+
+        private int track;
+        private int index;
+        private float timeline;
+        private float oldtime;
+        private NISLoader.CameraTrackEntry oldentry;
+
+        public override void Apply()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.timeline = timeline;
+            main.curcam = track;
+            for (int i = 0; i < main.cameratrack[track].Item2.Length; i++)
+            {
+                if (timeline >= main.cameratrack[track].Item2[i].Time && (i == main.cameratrack[track].Item2.Length - 1 || timeline < main.cameratrack[track].Item2[i + 1].Time))
+                {
+                    main.cursegment = i;
+                    break;
+                }
+            }
+
+            main.dontUseHistory = true;
+            main.SegmentEditAction(5);
+            main.dontUseHistory = false;
+        }
+
+        public override void Restore()
+        {
+            Main main = FindObjectOfType<Main>();
+            if (main.TimelineLockToggle.isOn)
+                main.TimelineLockToggle.isOn = false;
+            var entries = main.cameratrack[track].Item2.ToList();
+            if (oldtime > 0f)
+            {
+                var v = entries[0];
+                v.Time = oldtime;
+                entries[0] = v;
+            }
+
+            entries.Insert(index, oldentry);
+            main.cameratrack[track] = (main.cameratrack[track].Item1, entries.ToArray());
+            main.GenCameraTrackPreview();
+            main.GenCameraSplines();
+            main.UpdCameraTrackPreview();
+        }
+
+        public override string ToString()
+        {
+            return "remove segment";
+        }
+    }
+
+    class MergeSegmentLeft : HistoryEntry
+    {
+        public MergeSegmentLeft(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry1, NISLoader.CameraTrackEntry _oldentry2)
+        {
+            track = _track;
+            index = _index;
+            timeline = _timeline;
+            oldentry1 = _oldentry1;
+            oldentry2 = _oldentry2;
+        }
+
+        private int track;
+        private int index;
+        private float timeline;
+        private float oldtime;
+        private NISLoader.CameraTrackEntry oldentry1;
+        private NISLoader.CameraTrackEntry oldentry2;
+        internal int actionNum = 2;
+
+        public override void Apply()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.timeline = timeline;
+            main.curcam = track;
+            for (int i = 0; i < main.cameratrack[track].Item2.Length; i++)
+            {
+                if (timeline >= main.cameratrack[track].Item2[i].Time && (i == main.cameratrack[track].Item2.Length - 1 || timeline < main.cameratrack[track].Item2[i + 1].Time))
+                {
+                    main.cursegment = i;
+                    break;
+                }
+            }
+
+            main.dontUseHistory = true;
+            main.SegmentEditAction(actionNum);
+            main.dontUseHistory = false;
+        }
+
+        public override void Restore()
+        {
+            Main main = FindObjectOfType<Main>();
+            if (main.TimelineLockToggle.isOn)
+                main.TimelineLockToggle.isOn = false;
+            var entries = main.cameratrack[track].Item2.ToList();
+            entries[index - 1] = oldentry1;
+            entries.Insert(index, oldentry2);
+            main.cameratrack[track] = (main.cameratrack[track].Item1, entries.ToArray());
+            main.GenCameraTrackPreview();
+            main.GenCameraSplines();
+            main.UpdCameraTrackPreview();
+        }
+
+        public override string ToString()
+        {
+            return "merge segment with prev.";
+        }
+    }
+
+    class MergeSegmentRight : MergeSegmentLeft
+    {
+        public MergeSegmentRight(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry1, NISLoader.CameraTrackEntry _oldentry2) : base(_track, _index, _timeline, _oldentry1, _oldentry2)
+        {
+            actionNum = 3;
+        }
+
+        public override string ToString()
+        {
+            return "merge segment with next";
+        }
+    }
+
+    class HistoryChangeCameraTrack : HistoryEntry
+    {
+        public HistoryChangeCameraTrack(int _track1, int _track2)
+        {
+            track1 = _track1;
+            track2 = _track2;
+        }
+
+        private int track1;
+        private int track2;
+
+        public override void Apply()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.dontUseHistory = true;
+            main.ChangeCameraTrack(track2);
+            main.dontUseHistory = false;
+        }
+
+        public override void Restore()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.dontUseHistory = true;
+            main.ChangeCameraTrack(track1);
+            main.dontUseHistory = false;
+        }
+
+        public override string ToString()
+        {
+            return "change camera track";
+        }
+    }
+
+    class ChangeCameraTrackHeader : HistoryEntry
+    {
+        public ChangeCameraTrackHeader(int _track, NISLoader.CameraTrackHeader _header1, NISLoader.CameraTrackHeader _header2)
+        {
+            track = _track;
+            header1 = _header1;
+            header2 = _header2;
+        }
+
+        private int track;
+        private NISLoader.CameraTrackHeader header1;
+        private NISLoader.CameraTrackHeader header2;
+
+        public override void Apply()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.cameratrack[track] = (header2, main.cameratrack[track].Item2);
+            main.updlimit = false;
+            main.dontUseHistory = true;
+            main.ChangeCameraTrack(track);
+            main.UpdateTitle();
+            main.dontUseHistory = false;
+        }
+
+        public override void Restore()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.cameratrack[track] = (header1, main.cameratrack[track].Item2);
+            main.updlimit = false;
+            main.dontUseHistory = true;
+            main.ChangeCameraTrack(track);
+            main.UpdateTitle();
+            main.dontUseHistory = false;
+        }
+
+        public override string ToString()
+        {
+            return "edit camera track header";
+        }
+    }
+
+    class CreateCameraTrack : HistoryEntry
+    {
+        public CreateCameraTrack(int _track, int _oldtrack, (NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[]) _trackdata)
+        {
+            track = _track;
+            oldtrack = _oldtrack;
+            trackdata = _trackdata;
+        }
+        
+        private int track;
+        private int oldtrack;
+        private (NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[]) trackdata;
+        
+        public override void Apply()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.cameratrack.Insert(track, trackdata);
+            Dropdown.OptionData opt = new Dropdown.OptionData();
+            opt.text = trackdata.Item1.TrackName;
+            main.dontUseHistory = true;
+            main.CameraTrackSelection.options.Add(opt);
+            main.CameraTrackSelection.value = 0;
+            main.CameraTrackSelection.value = track;
+            main.updlimit = false;
+            main.ChangeCameraTrack(track);
+            main.dontUseHistory = false;
+        }
+
+        public override void Restore()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.cameratrack.RemoveAt(track);
+            main.dontUseHistory = true;
+            main.CameraTrackSelection.options.RemoveAt(track);
+            main.CameraTrackSelection.value = 0;
+            main.CameraTrackSelection.value = oldtrack;
+            main.updlimit = false;
+            main.ChangeCameraTrack(oldtrack);
+            main.dontUseHistory = false;
+        }
+        
+        public override string ToString()
+        {
+            return "create camera track";
+        }
+    }
+    
+    class HRemoveCameraTrack : HistoryEntry
+    {
+        public HRemoveCameraTrack(int _track, int _newtrack, (NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[]) _trackdata)
+        {
+            track = _track;
+            newtrack = _newtrack;
+            trackdata = _trackdata;
+        }
+        
+        private int track;
+        private int newtrack;
+        private (NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[]) trackdata;
+        
+        public override void Apply()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.cameratrack.RemoveAt(track);
+            main.dontUseHistory = true;
+            main.CameraTrackSelection.options.RemoveAt(track);
+            main.CameraTrackSelection.value = 0;
+            main.CameraTrackSelection.value = newtrack;
+            main.updlimit = false;
+            main.ChangeCameraTrack(newtrack);
+            main.dontUseHistory = false;
+        }
+
+        public override void Restore()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.cameratrack.Insert(track, trackdata);
+            Dropdown.OptionData opt = new Dropdown.OptionData();
+            opt.text = trackdata.Item1.TrackName;
+            main.dontUseHistory = true;
+            main.CameraTrackSelection.options.Add(opt);
+            main.CameraTrackSelection.value = 0;
+            main.CameraTrackSelection.value = track;
+            main.updlimit = false;
+            main.ChangeCameraTrack(track);
+            main.dontUseHistory = false;
+        }
+        
+        public override string ToString()
+        {
+            return "remove camera track";
+        }
+    }
+    
+    
+
+    List<HistoryEntry> historyAnimations = new List<HistoryEntry>();
+    List<HistoryEntry> historyCamera = new List<HistoryEntry>();
+    private int currentEntryAnimations = -1;
+    private int currentEntryCamera = -1;
+    private bool dontUseHistory;
+
+    void AddToHistoryNIS(HistoryEntry entry)
+    {
+        if (dontUseHistory) return;
+        currentEntryAnimations++;
+        while (historyAnimations.Count > currentEntryAnimations)
+            historyAnimations.RemoveAt(historyAnimations.Count - 1);
+        historyAnimations.Add(entry);
+        if (historyAnimations.Count > 64)
+        {
+            historyAnimations.RemoveAt(0);
+            currentEntryAnimations--;
+        }
+        Debug.Log("AddToHistoryNIS");
+    }
+
+    void UndoNIS()
+    {
+        if (currentEntryAnimations < 0) return;
+        historyAnimations[currentEntryAnimations].Restore();
+        Debug.Log("Undo " + historyAnimations[currentEntryAnimations]);
+        currentEntryAnimations--;
+    }
+
+    void RedoNIS()
+    {
+        if (currentEntryAnimations >= historyAnimations.Count - 1) return;
+        historyAnimations[currentEntryAnimations].Apply();
+        Debug.Log("Redo " + historyAnimations[currentEntryAnimations]);
+        currentEntryAnimations++;
+    }
+    
+    void AddToHistoryCam(HistoryEntry entry)
+    {
+        if (dontUseHistory) return;
+        currentEntryCamera++;
+        while (historyCamera.Count > currentEntryCamera)
+            historyCamera.RemoveAt(historyCamera.Count - 1);
+        historyCamera.Add(entry);
+        if (historyCamera.Count > 64)
+        {
+            historyCamera.RemoveAt(0);
+            currentEntryCamera--;
+        }
+        Debug.Log("AddToHistoryCam");
+    }
+    
+    void UndoCam()
+    {
+        if (currentEntryCamera < 0 || playing || RealtimeCameraEditActive) return;
+        historyCamera[currentEntryCamera].Restore();
+        Debug.Log("Undo " + historyCamera[currentEntryCamera]);
+        currentEntryCamera--;
+    }
+    
+    void RedoCam()
+    {
+        if (currentEntryCamera >= historyCamera.Count - 1 || playing || RealtimeCameraEditActive) return;
+        currentEntryCamera++;
+        historyCamera[currentEntryCamera].Apply();
+        Debug.Log("Redo " + historyCamera[currentEntryCamera]);
+    }
+
+    public void UndoButton()
+    {
+        if (tabnum == 2)
+            UndoNIS();
+        else if (tabnum == 3)
+            UndoCam();
+    }
+    
+    public void RedoButton()
+    {
+        if (tabnum == 2)
+            RedoNIS();
+        else if (tabnum == 3)
+            RedoCam();
+    }
+
+    void ClearHistory()
+    {
+        historyAnimations.Clear();
+        currentEntryAnimations = -1;
+        historyCamera.Clear();
+        currentEntryCamera = -1;
+    }
 
     void Update()
     {
-        if (Screen.fullScreen)
-            Screen.fullScreen = false;
         if (!activated) return;
         if (SavedText.color.a > 0f)
             SavedText.color = new Color(1f, 1f, 1f, SavedText.color.a - Time.deltaTime * 0.5f);
@@ -271,6 +783,8 @@ public class Main : MonoBehaviour
                     f.interactable = !gizmo.isTransforming;
                 foreach (InputField f in BoneValues)
                     f.interactable = !gizmo.isTransforming;
+                HistoryButtons[0].interactable = currentEntryAnimations > -1;
+                HistoryButtons[1].interactable = currentEntryAnimations < historyAnimations.Count - 1;
                 if (gizmo.isTransforming)
                 {
                     //int pos = (int)Mathf.Floor(timeinsec * 15f);
@@ -392,7 +906,7 @@ public class Main : MonoBehaviour
                 }
                 break;
             case 3:
-                if (Input.GetKey(KeyCode.LeftControl))
+                if (Input.GetKey(KeyCode.LeftControl) && !RealtimeCameraEditActive)
                 {
                     if (Input.GetKeyDown(KeyCode.L) && TimelineLockToggle.interactable)
                     {
@@ -418,13 +932,24 @@ public class Main : MonoBehaviour
                     {
                         SegmentEditAction(5);
                     }
-                    else if (Input.GetKeyDown(KeyCode.C))
+                    else if (Input.GetKeyDown(KeyCode.Z))
                     {
-                        SegmentEditAction(6);
+                        UndoCam();
                     }
-                    else if (Input.GetKeyDown(KeyCode.V))
+                    else if (Input.GetKeyDown(KeyCode.Y))
                     {
-                        SegmentEditAction(7);
+                        RedoCam();
+                    }
+                    else if (Input.GetKey(KeyCode.LeftShift))
+                    {
+                        if (Input.GetKeyDown(KeyCode.C))
+                        {
+                            SegmentEditAction(6);
+                        }
+                        else if (Input.GetKeyDown(KeyCode.V))
+                        {
+                            SegmentEditAction(7);
+                        }
                     }
                 }
                 float localt = InverseLerpUnclamped(editorTimelineMin, editorTimelineMax, timeline);
@@ -434,6 +959,8 @@ public class Main : MonoBehaviour
                 PreviewTimeline[2].value = timeline;
                 PreviewTimeline[3].value = editorTimelineMin;
                 PreviewTimeline[4].value = editorTimelineMax;
+                HistoryButtons[0].interactable = currentEntryCamera > -1;
+                HistoryButtons[1].interactable = currentEntryCamera < historyCamera.Count - 1;
                 if (!TimelineLock)
                 {
                     for (int i = 0; i < cameratrack[curcam].Item2.Length; i++)
@@ -850,6 +1377,7 @@ public class Main : MonoBehaviour
 
     public void OpenNIS()
     {
+        ClearHistory();
         NISSaveDisabled = false;
         CameraSaveDisabled = false;
         miscoffsets.Clear();
@@ -1005,6 +1533,7 @@ public class Main : MonoBehaviour
         CameraTrackSelection.value = 0;
         editorTimelineMin = 0f;
         editorTimelineMax = 1f;
+        updlimit = false;
         ChangeCameraTrack(0);
         TimelineLock = false;
         TimelineLockToggle.isOn = false;
@@ -1387,7 +1916,16 @@ public class Main : MonoBehaviour
 
     public void ChangeCameraTrack(int num)
     {
+        if (updlimit) return;
+        updlimit = true;
+        if (!dontUseHistory)
+        {
+            if (curcam != num)
+                AddToHistoryCam(new HistoryChangeCameraTrack(curcam, num));
+        }
         curcam = num;
+        if (CameraTrackSelection.value != curcam)
+            CameraTrackSelection.value = curcam;
         if (RealtimeCameraEditActive)
             ToggleCameraControl();
         NewCameraTrackName.text = cameratrack.Count > 0 ? cameratrack[curcam].Item1.TrackName : "";
@@ -1999,6 +2537,7 @@ public class Main : MonoBehaviour
 
     public void RenameCameraTrack()
     {
+        var old = cameratrack[curcam].Item1.Clone();
         var v = cameratrack[curcam].Item1;
         v.TrackName = NewCameraTrackName.text;
         CameraTrackSelection.options[curcam].text = NewCameraTrackName.text;
@@ -2017,8 +2556,10 @@ public class Main : MonoBehaviour
                 v.Unknown1[i] = (byte) Convert.ToInt32(ss[i], 16);
         } catch {}
         cameratrack[curcam] = (v, cameratrack[curcam].Item2);
+        updlimit = false;
         ChangeCameraTrack(curcam);
         UpdateTitle();
+        AddToHistoryCam(new ChangeCameraTrackHeader(curcam, old, v.Clone()));
     }
 
     public void NewCameraTrack()
@@ -2053,10 +2594,15 @@ public class Main : MonoBehaviour
         cameratrack.Add((header, entries));
         Dropdown.OptionData opt = new Dropdown.OptionData();
         opt.text = header.TrackName;
+        int oldcur = curcam;
+        AddToHistoryCam(new CreateCameraTrack(cameratrack.Count - 1, oldcur, cameratrack[cameratrack.Count - 1]));
+        dontUseHistory = true;
         CameraTrackSelection.options.Add(opt);
         CameraTrackSelection.value = 0;
         CameraTrackSelection.value = cameratrack.Count - 1;
+        updlimit = false;
         ChangeCameraTrack(cameratrack.Count - 1);
+        dontUseHistory = false;
     }
 
     public void RemoveCameraTrack()
@@ -2064,12 +2610,16 @@ public class Main : MonoBehaviour
         if (cameratrack.Count <= 1) return;
         if (RealtimeCameraEditActive)
             ToggleCameraControl();
+        AddToHistoryCam(new HRemoveCameraTrack(curcam, Mathf.Min(curcam, cameratrack.Count - 2), cameratrack[curcam]));
         cameratrack.RemoveAt(curcam);
+        dontUseHistory = true;
         CameraTrackSelection.options.RemoveAt(curcam);
         int oldcur = curcam;
         CameraTrackSelection.value = 0;
         CameraTrackSelection.value = Mathf.Min(oldcur, cameratrack.Count - 1);
+        updlimit = false;
         ChangeCameraTrack(CameraTrackSelection.value);
+        dontUseHistory = false;
     }
 
     public Button RemoveCameraButton;
@@ -2079,18 +2629,23 @@ public class Main : MonoBehaviour
     public void SegmentEditAction(int num)
     {
         if (num == 0) return;
-        playing = false;
         if (RealtimeCameraEditActive) return;
+        playing = false;
         List<NISLoader.CameraTrackEntry> entries;
         NISLoader.CameraTrackEntry base_entry;
         NISLoader.CameraTrackEntry cur_entry;
+        NISLoader.CameraTrackEntry old_entry;
+        NISLoader.CameraTrackEntry old_entry2;
         actionDropdown.value = 0;
         num -= 1;
         NISLoader.camrec rec;
         (NISLoader.camrec, NISLoader.camrec) split_result;
+        if (TimelineLockToggle.isOn)
+            TimelineLockToggle.isOn = false;
         switch (num)
         {
             case 0:
+                old_entry = cameratrack[curcam].Item2[cursegment].Clone();
                 rec = new NISLoader.camrec(cameratrack[curcam].Item2[cursegment]);
                 split_result = rec.SplitInTwo(cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time : 1f);
                 entries = cameratrack[curcam].Item2.ToList();
@@ -2100,9 +2655,13 @@ public class Main : MonoBehaviour
                 GenCameraTrackPreview();
                 GenCameraSplines();
                 UpdCameraTrackPreview();
+                if (!dontUseHistory)
+                    AddToHistoryCam(new SplitSegment(curcam, cursegment, timeline, old_entry));
                 break;
             case 1:
                 if (cursegment == 0) return;
+                old_entry = cameratrack[curcam].Item2[cursegment - 1].Clone();
+                old_entry2 = cameratrack[curcam].Item2[cursegment].Clone();
                 base_entry = cameratrack[curcam].Item2[cursegment - 1];
                 cur_entry = cameratrack[curcam].Item2[cursegment];
                 base_entry.unk6 = cur_entry.unk6;
@@ -2125,9 +2684,13 @@ public class Main : MonoBehaviour
                 GenCameraTrackPreview();
                 GenCameraSplines();
                 UpdCameraTrackPreview();
+                if (!dontUseHistory)
+                    AddToHistoryCam(new MergeSegmentLeft(curcam, cursegment, timeline, old_entry, old_entry2));
                 break;
             case 2:
                 if (cursegment == cameratrack[curcam].Item2.Length - 1) return;
+                old_entry = cameratrack[curcam].Item2[cursegment].Clone();
+                old_entry2 = cameratrack[curcam].Item2[cursegment + 1].Clone();
                 base_entry = cameratrack[curcam].Item2[cursegment];
                 cur_entry = cameratrack[curcam].Item2[cursegment + 1];
                 base_entry.unk6 = cur_entry.unk6;
@@ -2150,8 +2713,11 @@ public class Main : MonoBehaviour
                 GenCameraTrackPreview();
                 GenCameraSplines();
                 UpdCameraTrackPreview();
+                if (!dontUseHistory)
+                    AddToHistoryCam(new MergeSegmentRight(curcam, cursegment + 1, timeline, old_entry, old_entry2));
                 break;
             case 3:
+                old_entry = cameratrack[curcam].Item2[cursegment].Clone();
                 rec = new NISLoader.camrec(cameratrack[curcam].Item2[cursegment]);
                 split_result = rec.SplitInTwo(cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time : 1f);
                 base_entry = split_result.Item2.e;
@@ -2188,15 +2754,28 @@ public class Main : MonoBehaviour
                 GenCameraTrackPreview();
                 GenCameraSplines();
                 UpdCameraTrackPreview();
+                if (!dontUseHistory)
+                    AddToHistoryCam(new CreateSegment(curcam, cursegment, timeline, old_entry));
                 break;
             case 4:
                 if (cameratrack[curcam].Item2.Length <= 1) return;
+                old_entry = cameratrack[curcam].Item2[cursegment].Clone();
                 entries = cameratrack[curcam].Item2.ToList();
                 entries.RemoveAt(cursegment);
+                float old_time = 0f;
+                if (cursegment == 0)
+                {
+                    var v = entries[0];
+                    old_time = v.Time;
+                    v.Time = 0f;
+                    entries[0] = v;
+                }
                 cameratrack[curcam] = (cameratrack[curcam].Item1, entries.ToArray());
                 GenCameraTrackPreview();
                 GenCameraSplines();
                 UpdCameraTrackPreview();
+                if (!dontUseHistory)
+                    AddToHistoryCam(new RemoveSegment(curcam, cursegment, timeline, old_entry, old_time));
                 break;
             case 5:
                 if (cameraeditcurtab < 2) {
@@ -2357,54 +2936,237 @@ public class Main : MonoBehaviour
             timeline = cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time - 0.001f : 1f;
     }
 
+    private NISLoader.CameraTrackEntry CameraEditOld;
+
     public void CameraValuesUpdated()
     {
         if (playing || !allow_changes) return;
+        bool changed = false;
+        NISLoader.CameraTrackEntry old_ = cameratrack[curcam].Item2[cursegment].Clone();
+        float old;
         switch (cameraeditcurtab)
         {
             case 0:
-                try { cameratrack[curcam].Item2[cursegment].unk5 = float.Parse(CameraEditValues[0].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].EyeX = float.Parse(CameraEditValues[1].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].EyeZ = float.Parse(CameraEditValues[2].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].EyeY = float.Parse(CameraEditValues[3].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].LookX = float.Parse(CameraEditValues[4].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].LookZ = float.Parse(CameraEditValues[5].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].LookY = float.Parse(CameraEditValues[6].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].Tangent = float.Parse(CameraEditValues[7].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].FocalLength = float.Parse(CameraEditValues[8].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].unk9 = float.Parse(CameraEditValues[9].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].Amp = float.Parse(CameraEditValues[10].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].Freq = float.Parse(CameraEditValues[11].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].unk11 = float.Parse(CameraEditValues[12].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].unk13[4] = byte.Parse(CameraEditValues[13].text, CultureInfo.InvariantCulture); } catch { }
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].unk5;
+                    cameratrack[curcam].Item2[cursegment].unk5 = float.Parse(CameraEditValues[0].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].unk5)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].EyeX;
+                    cameratrack[curcam].Item2[cursegment].EyeX = float.Parse(CameraEditValues[1].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].EyeX)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].EyeZ;
+                    cameratrack[curcam].Item2[cursegment].EyeZ = float.Parse(CameraEditValues[2].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].EyeZ)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].EyeY;
+                    cameratrack[curcam].Item2[cursegment].EyeY = float.Parse(CameraEditValues[3].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].EyeY)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].LookX;
+                    cameratrack[curcam].Item2[cursegment].LookX = float.Parse(CameraEditValues[4].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].LookX)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].LookZ;
+                    cameratrack[curcam].Item2[cursegment].LookZ = float.Parse(CameraEditValues[5].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].LookZ)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].LookY;
+                    cameratrack[curcam].Item2[cursegment].LookY = float.Parse(CameraEditValues[6].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].LookY)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].Tangent;
+                    cameratrack[curcam].Item2[cursegment].Tangent = float.Parse(CameraEditValues[7].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].Tangent)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].FocalLength;
+                    cameratrack[curcam].Item2[cursegment].FocalLength = float.Parse(CameraEditValues[8].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].FocalLength)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].unk9;
+                    cameratrack[curcam].Item2[cursegment].unk9 = float.Parse(CameraEditValues[9].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].unk9)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].Amp;
+                    cameratrack[curcam].Item2[cursegment].Amp = float.Parse(CameraEditValues[10].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].Amp)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].Freq;
+                    cameratrack[curcam].Item2[cursegment].Freq = float.Parse(CameraEditValues[11].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].Freq)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].unk11;
+                    cameratrack[curcam].Item2[cursegment].unk11 = float.Parse(CameraEditValues[12].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].unk11)
+                        changed = true;
+                } catch {}
+                try {
+                    old = cameratrack[curcam].Item2[cursegment].unk13[4];
+                    cameratrack[curcam].Item2[cursegment].unk13[4] = byte.Parse(CameraEditValues[13].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].unk13[4])
+                        changed = true;
+                } catch { }
                 break;
             default:
-                try { cameratrack[curcam].Item2[cursegment].unk6 = float.Parse(CameraEditValues[0].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].EyeX2 = float.Parse(CameraEditValues[1].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].EyeZ2 = float.Parse(CameraEditValues[2].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].EyeY2 = float.Parse(CameraEditValues[3].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].LookX2 = float.Parse(CameraEditValues[4].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].LookZ2 = float.Parse(CameraEditValues[5].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].LookY2 = float.Parse(CameraEditValues[6].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].Tangent2 = float.Parse(CameraEditValues[7].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].FocalLength2 = float.Parse(CameraEditValues[8].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].unk10 = float.Parse(CameraEditValues[9].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].Amp2 = float.Parse(CameraEditValues[10].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].Freq2 = float.Parse(CameraEditValues[11].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].unk12 = float.Parse(CameraEditValues[12].text, CultureInfo.InvariantCulture); } catch {}
-                try { cameratrack[curcam].Item2[cursegment].unk13[5] = byte.Parse(CameraEditValues[13].text, CultureInfo.InvariantCulture); } catch { }
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].unk6;
+                    cameratrack[curcam].Item2[cursegment].unk6 = float.Parse(CameraEditValues[0].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].unk6)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].EyeX2;
+                    cameratrack[curcam].Item2[cursegment].EyeX2 = float.Parse(CameraEditValues[1].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].EyeX2)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].EyeZ2;
+                    cameratrack[curcam].Item2[cursegment].EyeZ2 = float.Parse(CameraEditValues[2].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].EyeZ2)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].EyeY2;
+                    cameratrack[curcam].Item2[cursegment].EyeY2 = float.Parse(CameraEditValues[3].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].EyeY2)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].LookX2;
+                    cameratrack[curcam].Item2[cursegment].LookX2 = float.Parse(CameraEditValues[4].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].LookX2)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].LookZ2;
+                    cameratrack[curcam].Item2[cursegment].LookZ2 = float.Parse(CameraEditValues[5].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].LookZ2)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].LookY2;
+                    cameratrack[curcam].Item2[cursegment].LookY2 = float.Parse(CameraEditValues[6].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].LookY2)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].Tangent2;
+                    cameratrack[curcam].Item2[cursegment].Tangent2 = float.Parse(CameraEditValues[7].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].Tangent2)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].FocalLength2;
+                    cameratrack[curcam].Item2[cursegment].FocalLength2 = float.Parse(CameraEditValues[8].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].FocalLength2)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].unk10;
+                    cameratrack[curcam].Item2[cursegment].unk10 = float.Parse(CameraEditValues[9].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].unk10)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].Amp2;
+                    cameratrack[curcam].Item2[cursegment].Amp2 = float.Parse(CameraEditValues[10].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].Amp2)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].Freq2;
+                    cameratrack[curcam].Item2[cursegment].Freq2 = float.Parse(CameraEditValues[11].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].Freq2)
+                        changed = true;
+                } catch {}
+                try
+                {
+                    old = cameratrack[curcam].Item2[cursegment].unk12;
+                    cameratrack[curcam].Item2[cursegment].unk12 = float.Parse(CameraEditValues[12].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].unk12)
+                        changed = true;
+                } catch {}
+                try {
+                    old = cameratrack[curcam].Item2[cursegment].unk13[5];
+                    cameratrack[curcam].Item2[cursegment].unk13[5] = byte.Parse(CameraEditValues[13].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].unk13[5])
+                        changed = true;
+                } catch { }
                 break;
         }
         GenCameraSplines();
+        if (changed && !RealtimeCameraEditActive)
+        {
+            NISLoader.CameraTrackEntry new_ = cameratrack[curcam].Item2[cursegment].Clone();
+            AddToHistoryCam(new EditCameraSegment(curcam, cursegment, old_, new_));
+        }
     }
 
     public void CameraFlagsUpdated()
     {
         if (playing || !allow_changes) return;
+        bool changed = false;
+        NISLoader.CameraTrackEntry old_ = cameratrack[curcam].Item2[cursegment].Clone();
+        byte old;
         for (int i = 0; i < 12; i++)
         {
-            try {
+            try
+            {
+                old = cameratrack[curcam].Item2[cursegment].attributes[i];
                 cameratrack[curcam].Item2[cursegment].attributes[i] = (byte) Convert.ToInt32(CameraEditFlags[i].text, 16);
+                if (old != cameratrack[curcam].Item2[cursegment].attributes[i])
+                    changed = true;
             } catch {}
         }
         try
@@ -2412,15 +3174,30 @@ public class Main : MonoBehaviour
             string[] ss = CameraEditFlags[12].text.Split('-');
             int ind = 3;
             for (int i = 12; i < 16; i++)
+            {
+                old = cameratrack[curcam].Item2[cursegment].attributes[i];
                 cameratrack[curcam].Item2[cursegment].attributes[i] = (byte) Convert.ToInt32(ss[ind--], 16);
+                if (old != cameratrack[curcam].Item2[cursegment].attributes[i])
+                    changed = true;
+            }
         } catch {}
         try
         {
             string[] ss = CameraEditFlags[13].text.Split('-');
             for (int i = 0; i < 4; i++)
+            {
+                old = cameratrack[curcam].Item2[cursegment].unk13[i];
                 cameratrack[curcam].Item2[cursegment].unk13[i] = (byte) Convert.ToInt32(ss[i], 16);
+                if (old != cameratrack[curcam].Item2[cursegment].unk13[i])
+                    changed = true;
+            }
         } catch {}
         GenCameraSplines();
+        if (changed)
+        {
+            NISLoader.CameraTrackEntry new_ = cameratrack[curcam].Item2[cursegment].Clone();
+            AddToHistoryCam(new EditCameraSegment(curcam, cursegment, old_, new_));
+        }
     }
 
     public InputField DurationField;
@@ -2441,6 +3218,8 @@ public class Main : MonoBehaviour
         if (RealtimeCameraEditActive) {
             playing = false;
 
+            CameraEditOld = cameratrack[curcam].Item2[cursegment].Clone();
+            
             Vector3 eyepos;
             Vector3 lookatpos;
             if (cameraeditcurtab == 0)
@@ -2471,8 +3250,14 @@ public class Main : MonoBehaviour
             else
                 timeline = cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time - 0.001f : 1f;
             gizmo2.AddTarget(FocusSphere);
-        } else
+        }
+        else
+        {
             gizmo2.RemoveTarget(FocusSphere);
+            NISLoader.CameraTrackEntry new_ = cameratrack[curcam].Item2[cursegment].Clone();
+            AddToHistoryCam(new EditCameraSegment(curcam, cursegment, CameraEditOld, new_));
+            
+        }
     }
 
     public void Bigger()
