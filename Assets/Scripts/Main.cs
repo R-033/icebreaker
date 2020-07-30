@@ -732,6 +732,13 @@ public class Main : MonoBehaviour
             RedoCam();
     }
 
+    private bool helpshown;
+
+    public void HelpButton(bool enable)
+    {
+        helpshown = enable;
+    }
+
     void ClearHistory()
     {
         historyAnimations.Clear();
@@ -742,7 +749,7 @@ public class Main : MonoBehaviour
 
     void Update()
     {
-        if (!activated) return;
+        if (!activated || helpshown) return;
         if (SavedText.color.a > 0f)
             SavedText.color = new Color(1f, 1f, 1f, SavedText.color.a - Time.deltaTime * 0.5f);
         updlimit = false;
