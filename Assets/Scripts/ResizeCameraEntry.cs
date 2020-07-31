@@ -30,5 +30,6 @@ public class ResizeCameraEntry : MonoBehaviour, IBeginDragHandler, IDragHandler,
     public void OnEndDrag(PointerEventData eventData)
     {
         main.ChangeCameraTrack(main.curcam);
+        main.AddToHistoryCam(new Main.ResizeCameraTrack(main.curcam, entry, orig_value, main.cameratrack[main.curcam].Item2[entry + 1].Time));
     }
 }

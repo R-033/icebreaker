@@ -233,14 +233,14 @@ public class Main : MonoBehaviour
 
     public static float timescale = 1f;
 
-    abstract class HistoryEntry
+    public abstract class HistoryEntry
     {
         public abstract void Apply();
 
         public abstract void Restore();
     }
 
-    class EditCameraSegment : HistoryEntry
+    public class EditCameraSegment : HistoryEntry
     {
         public EditCameraSegment(int _track, int _index, NISLoader.CameraTrackEntry _oldentry, NISLoader.CameraTrackEntry _newentry)
         {
@@ -277,7 +277,7 @@ public class Main : MonoBehaviour
         }
     }
 
-    class SplitSegment : HistoryEntry
+    public class SplitSegment : HistoryEntry
     {
         public SplitSegment(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry)
         {
@@ -332,7 +332,7 @@ public class Main : MonoBehaviour
         }
     }
 
-    class CreateSegment : SplitSegment
+    public class CreateSegment : SplitSegment
     {
         public CreateSegment(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry) : base(_track, _index, _timeline, _oldentry)
         {
@@ -345,7 +345,7 @@ public class Main : MonoBehaviour
         }
     }
 
-    class RemoveSegment : HistoryEntry
+    public class RemoveSegment : HistoryEntry
     {
         public RemoveSegment(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry, float _oldtime)
         {
@@ -407,7 +407,7 @@ public class Main : MonoBehaviour
         }
     }
 
-    class MergeSegmentLeft : HistoryEntry
+    public class MergeSegmentLeft : HistoryEntry
     {
         public MergeSegmentLeft(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry1, NISLoader.CameraTrackEntry _oldentry2)
         {
@@ -465,7 +465,7 @@ public class Main : MonoBehaviour
         }
     }
 
-    class MergeSegmentRight : MergeSegmentLeft
+    public class MergeSegmentRight : MergeSegmentLeft
     {
         public MergeSegmentRight(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry1, NISLoader.CameraTrackEntry _oldentry2) : base(_track, _index, _timeline, _oldentry1, _oldentry2)
         {
@@ -478,7 +478,7 @@ public class Main : MonoBehaviour
         }
     }
 
-    class HistoryChangeCameraTrack : HistoryEntry
+    public class HistoryChangeCameraTrack : HistoryEntry
     {
         public HistoryChangeCameraTrack(int _track1, int _track2)
         {
@@ -511,7 +511,7 @@ public class Main : MonoBehaviour
         }
     }
 
-    class ChangeCameraTrackHeader : HistoryEntry
+    public class ChangeCameraTrackHeader : HistoryEntry
     {
         public ChangeCameraTrackHeader(int _track, NISLoader.CameraTrackHeader _header1, NISLoader.CameraTrackHeader _header2)
         {
@@ -552,7 +552,7 @@ public class Main : MonoBehaviour
         }
     }
 
-    class CreateCameraTrack : HistoryEntry
+    public class CreateCameraTrack : HistoryEntry
     {
         public CreateCameraTrack(int _track, int _oldtrack, (NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[]) _trackdata)
         {
@@ -599,7 +599,7 @@ public class Main : MonoBehaviour
         }
     }
     
-    class HRemoveCameraTrack : HistoryEntry
+    public class HRemoveCameraTrack : HistoryEntry
     {
         public HRemoveCameraTrack(int _track, int _newtrack, (NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[]) _trackdata)
         {
@@ -646,7 +646,197 @@ public class Main : MonoBehaviour
         }
     }
     
+    public class SwapCameraTrack : HistoryEntry
+    {
+        public SwapCameraTrack(int _track, int _entry)
+        {
+            track = _track;
+            entry = _entry;
+        }
+        
+        private int track;
+        private int entry;
+
+        public override void Apply()
+        {
+            Swap();
+        }
+
+        public override void Restore()
+        {
+            Swap();
+        }
+
+        void Swap()
+        {
+            Main main = FindObjectOfType<Main>();
+            float firstlength = (entry < main.cameratrack[track].Item2.Length - 1 ? main.cameratrack[track].Item2[entry + 1].Time : 1f) - main.cameratrack[track].Item2[entry].Time;
+            var v = main.cameratrack[track].Item2[entry];
+            main.cameratrack[track].Item2[entry] = main.cameratrack[track].Item2[entry - 1];
+            main.cameratrack[track].Item2[entry - 1] = v;
+            main.cameratrack[track].Item2[entry - 1].Time = main.cameratrack[track].Item2[entry].Time;
+            main.cameratrack[track].Item2[entry].Time = main.cameratrack[track].Item2[entry - 1].Time + firstlength;
+            main.CtEntryIcons[entry].transform.SetSiblingIndex(entry - 1);
+            main.CtEntryIcons[entry - 1].transform.SetSiblingIndex(entry);
+            var im = main.CtEntryIcons[entry];
+            main.CtEntryIcons[entry] = main.CtEntryIcons[entry - 1];
+            main.CtEntryIcons[entry - 1] = im;
+            if (entry == main.cameratrack[track].Item2.Length - 1)
+            {
+                main.CtEntryIcons[entry - 1].transform.GetChild(0).gameObject.SetActive(true);
+                main.CtEntryIcons[entry].transform.GetChild(0).gameObject.SetActive(false);
+            }
+            main.ChangeCameraTrack(main.curcam);
+        }
+        
+        public override string ToString()
+        {
+            return "swap segments";
+        }
+    }
     
+    public class ResizeCameraTrack : HistoryEntry
+    {
+        public ResizeCameraTrack(int _track, int _entry, float _oldTime, float _curTime)
+        {
+            track = _track;
+            entry = _entry;
+            oldTime = _oldTime;
+            curTime = _curTime;
+        }
+        
+        private int track;
+        private int entry;
+        private float oldTime;
+        private float curTime;
+
+        public override void Apply()
+        {
+            Resize(curTime);
+        }
+
+        public override void Restore()
+        {
+            Resize(oldTime);
+        }
+
+        void Resize(float t)
+        {
+            Main main = FindObjectOfType<Main>();
+            main.cameratrack[track].Item2[entry + 1].Time = t;
+            main.UpdCameraTrackPreview();
+            main.ChangeCameraTrack(main.curcam);
+        }
+        
+        public override string ToString()
+        {
+            return "resize segment";
+        }
+    }
+
+    public class MoveObject : HistoryEntry
+    {
+        public MoveObject(string _objname, NISLoader.Animation _anim, float[][] _old_values)
+        {
+            objname = _objname;
+            anim = _anim;
+            old_values = _old_values;
+            float[][] _new_values = _anim.delta;
+            new_values = new float[_new_values.Length][];
+            for (int i = 0; i < _new_values.Length; i++)
+            {
+                new_values[i] = new float[_new_values[i].Length];
+                for (int j = 0; j < _new_values[i].Length; j++)
+                    new_values[i][j] = _new_values[i][j];
+            }
+        }
+
+        internal string objname;
+        private NISLoader.Animation anim;
+        private float[][] old_values;
+        private float[][] new_values;
+        
+        public override void Apply()
+        {
+            anim.delta = new_values;
+            FindObjectOfType<Main>().dontUseHistory = true;
+        }
+
+        public override void Restore()
+        {
+            anim.delta = old_values;
+            FindObjectOfType<Main>().dontUseHistory = true;
+        }
+        
+        public override string ToString()
+        {
+            return "move object " + objname;
+        }
+    }
+    
+    public class Interpolate : MoveObject
+    {
+        public Interpolate(string _objname, NISLoader.Animation _anim, float[][] _old_values) : base(_objname, _anim, _old_values) { }
+        
+        public override string ToString()
+        {
+            return "interpolate " + objname;
+        }
+    }
+    
+    public class ChangeDeltaC : HistoryEntry
+    {
+        public ChangeDeltaC(string _objname, NISLoader.Animation[] _anim, float[][][] _old_values)
+        {
+            objname = _objname;
+            anim = _anim;
+            old_values = _old_values;
+            new_values = new float[old_values.Length][][];
+            for (int x = 0; x < _anim.Length; x++)
+            {
+                if (_anim[x] == null) continue;
+                new_values[x] = new float[_anim[x].delta.Length][];
+                for (int i = 0; i < _anim[x].delta.Length; i++)
+                {
+                    new_values[x][i] = new float[_anim[x].delta[i].Length];
+                    for (int j = 0; j < _anim[x].delta[i].Length; j++)
+                        new_values[x][i][j] = _anim[x].delta[i][j];
+                }
+            }
+        }
+
+        internal string objname;
+        private NISLoader.Animation[] anim;
+        private float[][][] old_values;
+        private float[][][] new_values;
+        
+        public override void Apply()
+        {
+            for (int x = 0; x < anim.Length; x++)
+            {
+                if (anim[x] == null) continue;
+                anim[x].delta = new_values[x];
+            }
+            FindObjectOfType<Main>().dontUseHistory = true;
+            FindObjectOfType<Main>().AnimationsEditorObjectSelected(FindObjectOfType<Main>().currentlyEditingObject);
+        }
+
+        public override void Restore()
+        {
+            for (int x = 0; x < anim.Length; x++)
+            {
+                if (anim[x] == null) continue;
+                anim[x].delta = old_values[x];
+            }
+            FindObjectOfType<Main>().dontUseHistory = true;
+            FindObjectOfType<Main>().AnimationsEditorObjectSelected(FindObjectOfType<Main>().currentlyEditingObject);
+        }
+        
+        public override string ToString()
+        {
+            return "change " + objname + " delta count";
+        }
+    }
 
     List<HistoryEntry> historyAnimations = new List<HistoryEntry>();
     List<HistoryEntry> historyCamera = new List<HistoryEntry>();
@@ -654,7 +844,7 @@ public class Main : MonoBehaviour
     private int currentEntryCamera = -1;
     private bool dontUseHistory;
 
-    void AddToHistoryNIS(HistoryEntry entry)
+    public void AddToHistoryNIS(HistoryEntry entry)
     {
         if (dontUseHistory) return;
         currentEntryAnimations++;
@@ -680,12 +870,12 @@ public class Main : MonoBehaviour
     void RedoNIS()
     {
         if (currentEntryAnimations >= historyAnimations.Count - 1) return;
+        currentEntryAnimations++;
         historyAnimations[currentEntryAnimations].Apply();
         Debug.Log("Redo " + historyAnimations[currentEntryAnimations]);
-        currentEntryAnimations++;
     }
     
-    void AddToHistoryCam(HistoryEntry entry)
+    public void AddToHistoryCam(HistoryEntry entry)
     {
         if (dontUseHistory) return;
         currentEntryCamera++;
@@ -697,7 +887,6 @@ public class Main : MonoBehaviour
             historyCamera.RemoveAt(0);
             currentEntryCamera--;
         }
-        Debug.Log("AddToHistoryCam");
     }
     
     void UndoCam()
@@ -747,6 +936,11 @@ public class Main : MonoBehaviour
         currentEntryCamera = -1;
     }
 
+    private bool objectmovetrigger;
+    private float[][] old_delta;
+    private NISLoader.Animation savedanim;
+    private float old_ttt = -1;
+
     void Update()
     {
         if (!activated || helpshown) return;
@@ -784,6 +978,9 @@ public class Main : MonoBehaviour
                 gizmo.YAllowed = !forceY;
                 timeline = Mathf.Round(timeinsec * 15f) / 15f / totalLength;
                 PreviewTimeline[5].value = Mathf.Round(timeinsec * 15f);
+                if (old_ttt != PreviewTimeline[5].value)
+                    dontUseHistory = true;
+                old_ttt = PreviewTimeline[5].value;
                 PreviewTimeline[6].value = interpolation_start * (Mathf.Round(totalLength * 15f) / PreviewTimeline[5].maxValue);
                 CoordText.text = editorCameraMovement.target.position.x.ToString("0.00", CultureInfo.InvariantCulture) + "," + editorCameraMovement.target.position.z.ToString("0.00", CultureInfo.InvariantCulture) + "," + editorCameraMovement.target.position.y.ToString("0.00", CultureInfo.InvariantCulture);
                 foreach (InputField f in RootValues)
@@ -815,6 +1012,37 @@ public class Main : MonoBehaviour
                             RootValues[4].text = (-currentlyEditingSubObject.transform.eulerAngles.x).ToString(CultureInfo.InvariantCulture);
                             RootValues[5].text = (-(currentlyEditingSubObject.transform.eulerAngles.y - 90f)).ToString(CultureInfo.InvariantCulture);
                         }
+                        if (!objectmovetrigger)
+                        {
+                            objectmovetrigger = true;
+                            if (Input.GetKey(KeyCode.LeftShift))
+                            {
+                                if (EditingAnimation_q != null)
+                                {
+                                    savedanim = EditingAnimation_q.subAnimations[0];
+                                }
+                                else
+                                    savedanim = null;
+                            } else {
+                                if (EditingAnimation_t != null)
+                                {
+                                    savedanim = EditingAnimation_t.subAnimations[0];
+                                }
+                                else
+                                    savedanim = null;
+                            }
+                            if (savedanim != null)
+                            {
+                                float[][] d = savedanim.delta;
+                                old_delta = new float[d.Length][];
+                                for (int i = 0; i < d.Length; i++)
+                                {
+                                    old_delta[i] = new float[d[i].Length];
+                                    for (int j = 0; j < d[i].Length; j++)
+                                        old_delta[i][j] = d[i][j];
+                                }
+                            }
+                        }
                     } else if (BoneSubEdit.activeSelf)
                     {
                         //if (EditingAnimation_s.type == NISLoader.AnimType.ANIM_COMPOUND)
@@ -827,6 +1055,37 @@ public class Main : MonoBehaviour
                     }
                 } else
                 {
+                    if (Input.GetKey(KeyCode.LeftControl))
+                    {
+                        if (Input.GetKeyDown(KeyCode.Z))
+                        {
+                            UndoNIS();
+                        }
+                        else if (Input.GetKeyDown(KeyCode.Y))
+                        {
+                            RedoNIS();
+                        }
+                        else if (Input.GetKey(KeyCode.LeftShift))
+                        {
+                            if (Input.GetKeyDown(KeyCode.C))
+                            {
+                                AnimationAction(5);
+                            }
+                            else if (Input.GetKeyDown(KeyCode.V))
+                            {
+                                AnimationAction(6);
+                            }
+                        }
+                    }
+                    if (objectmovetrigger)
+                    {
+                        objectmovetrigger = false;
+                        if (savedanim != null)
+                        {
+                            dontUseHistory = false;
+                            AddToHistoryNIS(new MoveObject(currentlyEditingObject, savedanim, old_delta));
+                        }
+                    }
                     (float[], float[], float, bool) eval_t, eval_q, eval_s;
                     if (EditingAnimation_t != null)
                         eval_t = NISLoader.EvaluateAnim(EditingAnimation_t, timeinsec);
@@ -910,6 +1169,9 @@ public class Main : MonoBehaviour
                     } else {
                         // todo layout here
                     }
+                    dontUseHistory = false;
+                    if (rewinded_this_frame > 0)
+                        rewinded_this_frame--;
                 }
                 break;
             case 3:
@@ -1645,6 +1907,7 @@ public class Main : MonoBehaviour
 
     public void AnimationsEditorSubObjectSelected(int objindex)
     {
+        old_ttt = -1;
         string objnn = currentlyEditingObject;
         if (objindex != 0)
         {
@@ -1699,32 +1962,96 @@ public class Main : MonoBehaviour
         NISLoader.Animation an_t = EditingAnimation_t;
         NISLoader.Animation an_q = EditingAnimation_q;
         NISLoader.Animation an_s = EditingAnimation_s;
+        bool changed;
+        float[] old;
+        float[][] d;
+        float[][] old_delta = null;
         if (RootSubEdit.activeSelf)
         {
             if (an_t != null)
             {
                 if (an_t.type == NISLoader.AnimType.ANIM_COMPOUND)
                     an_t = an_t.subAnimations[0];
-                try {
+                changed = false;
+                if (!gizmo.isTransforming && !dontUseHistory)
+                {
+                    d = an_t.delta;
+                    old_delta = new float[d.Length][];
+                    for (int i = 0; i < d.Length; i++)
+                    {
+                        old_delta[i] = new float[d[i].Length];
+                        for (int j = 0; j < d[i].Length; j++)
+                            old_delta[i][j] = d[i][j];
+                    }
+                }
+                try
+                {
+                    old = an_t.delta[pos];
                     an_t.delta[pos] = new [] { float.Parse(RootValues[0].text, CultureInfo.InvariantCulture), float.Parse(RootValues[1].text, CultureInfo.InvariantCulture), float.Parse(RootValues[2].text, CultureInfo.InvariantCulture) };
+                    if (old[0] != an_t.delta[pos][0] || old[1] != an_t.delta[pos][1] || old[2] != an_t.delta[pos][2])
+                        changed = true;
                 } catch {}
+                if (changed && !gizmo.isTransforming && !dontUseHistory && rewinded_this_frame == 0)
+                {
+                    AddToHistoryNIS(new MoveObject(currentlyEditingObject, an_t, old_delta));
+                }
             }
             if (an_q != null)
             {
                 if (an_q.type == NISLoader.AnimType.ANIM_COMPOUND)
                     an_q = an_q.subAnimations[0];
-                try {
+                changed = false;
+                if (!gizmo.isTransforming && !dontUseHistory)
+                {
+                    d = an_q.delta;
+                    old_delta = new float[d.Length][];
+                    for (int i = 0; i < d.Length; i++)
+                    {
+                        old_delta[i] = new float[d[i].Length];
+                        for (int j = 0; j < d[i].Length; j++)
+                            old_delta[i][j] = d[i][j];
+                    }
+                }
+                try
+                {
+                    old = an_q.delta[pos];
                     Quaternion quat = Quaternion.Euler(float.Parse(RootValues[3].text, CultureInfo.InvariantCulture), float.Parse(RootValues[4].text, CultureInfo.InvariantCulture), float.Parse(RootValues[5].text, CultureInfo.InvariantCulture));
                     an_q.delta[pos] = new [] { quat.x, quat.y, quat.z, quat.w };
+                    if (old[0] != an_q.delta[pos][0] || old[1] != an_q.delta[pos][1] || old[2] != an_q.delta[pos][2] || old[3] != an_q.delta[pos][3])
+                        changed = true;
                 } catch {}
+                if (changed && !gizmo.isTransforming && !dontUseHistory && rewinded_this_frame == 0)
+                {
+                    AddToHistoryNIS(new MoveObject(currentlyEditingObject, an_q, old_delta));
+                }
             }
             if (an_s != null)
             {
                 if (an_s.type == NISLoader.AnimType.ANIM_COMPOUND)
                     an_s = an_s.subAnimations[0];
-                try {
+                changed = false;
+                if (!gizmo.isTransforming)
+                {
+                    d = an_s.delta;
+                    old_delta = new float[d.Length][];
+                    for (int i = 0; i < d.Length; i++)
+                    {
+                        old_delta[i] = new float[d[i].Length];
+                        for (int j = 0; j < d[i].Length; j++)
+                            old_delta[i][j] = d[i][j];
+                    }
+                }
+                try
+                {
+                    old = an_s.delta[pos];
                     an_s.delta[pos] = new [] { float.Parse(RootValues[6].text, CultureInfo.InvariantCulture), float.Parse(RootValues[7].text, CultureInfo.InvariantCulture), float.Parse(RootValues[8].text, CultureInfo.InvariantCulture) };
+                    if (old[0] != an_s.delta[pos][0] || old[1] != an_s.delta[pos][1] || old[2] != an_s.delta[pos][2])
+                        changed = true;
                 } catch {}
+                if (changed && !gizmo.isTransforming && !dontUseHistory && rewinded_this_frame == 0)
+                {
+                    AddToHistoryNIS(new MoveObject(currentlyEditingObject, an_s, old_delta));
+                }
             }
         }
     }
@@ -1772,6 +2099,7 @@ public class Main : MonoBehaviour
         ind--;
         int pos1, pos2;
         ind += 2; // todo for now
+        float[][] d;
         switch (ind)
         {
             /*case 0:
@@ -1799,6 +2127,14 @@ public class Main : MonoBehaviour
                     {
                         if (an_t.type == NISLoader.AnimType.ANIM_COMPOUND)
                             an_t = an_t.subAnimations[0];
+                        d = an_t.delta;
+                        old_delta = new float[d.Length][];
+                        for (int i = 0; i < d.Length; i++)
+                        {
+                            old_delta[i] = new float[d[i].Length];
+                            for (int j = 0; j < d[i].Length; j++)
+                                old_delta[i][j] = d[i][j];
+                        }
                         Vector3 start = new Vector3(an_t.delta[pos1][0], an_t.delta[pos1][1], an_t.delta[pos1][2]);
                         Vector3 end = new Vector3(an_t.delta[pos2][0], an_t.delta[pos2][1], an_t.delta[pos2][2]);
                         Vector3 lerp;
@@ -1807,6 +2143,7 @@ public class Main : MonoBehaviour
                             lerp = Vector3.Lerp(start, end, Mathf.InverseLerp(pos1, pos2, i));
                             an_t.delta[i] = new[] { lerp.x, lerp.y, lerp.z };
                         }
+                        AddToHistoryNIS(new Interpolate(currentlyEditingObject, an_t, old_delta));
                     }
                 } else if (BoneSubEdit.activeSelf)
                 {
@@ -1830,6 +2167,14 @@ public class Main : MonoBehaviour
                     {
                         if (an_q.type == NISLoader.AnimType.ANIM_COMPOUND)
                             an_q = an_q.subAnimations[0];
+                        d = an_q.delta;
+                        old_delta = new float[d.Length][];
+                        for (int i = 0; i < d.Length; i++)
+                        {
+                            old_delta[i] = new float[d[i].Length];
+                            for (int j = 0; j < d[i].Length; j++)
+                                old_delta[i][j] = d[i][j];
+                        }
                         Quaternion start = new Quaternion(an_q.delta[pos1][0], an_q.delta[pos1][1], an_q.delta[pos1][2], an_q.delta[pos1][3]);
                         Quaternion end = new Quaternion(an_q.delta[pos2][0], an_q.delta[pos2][1], an_q.delta[pos2][2], an_q.delta[pos2][3]);
                         Quaternion lerp;
@@ -1838,6 +2183,7 @@ public class Main : MonoBehaviour
                             lerp = Quaternion.Slerp(start, end, Mathf.InverseLerp(pos1, pos2, i));
                             an_q.delta[i] = new[] { lerp.x, lerp.y, lerp.z, lerp.w };
                         }
+                        AddToHistoryNIS(new Interpolate(currentlyEditingObject, an_q, old_delta));
                     }
                 } else if (BoneSubEdit.activeSelf)
                 {
@@ -1861,6 +2207,14 @@ public class Main : MonoBehaviour
                     {
                         if (an_s.type == NISLoader.AnimType.ANIM_COMPOUND)
                             an_s = an_s.subAnimations[0];
+                        d = an_s.delta;
+                        old_delta = new float[d.Length][];
+                        for (int i = 0; i < d.Length; i++)
+                        {
+                            old_delta[i] = new float[d[i].Length];
+                            for (int j = 0; j < d[i].Length; j++)
+                                old_delta[i][j] = d[i][j];
+                        }
                         Vector3 start = new Vector3(an_s.delta[pos1][0], an_s.delta[pos1][1], an_s.delta[pos1][2]);
                         Vector3 end = new Vector3(an_s.delta[pos2][0], an_s.delta[pos2][1], an_s.delta[pos2][2]);
                         Vector3 lerp;
@@ -1869,6 +2223,7 @@ public class Main : MonoBehaviour
                             lerp = Vector3.Lerp(start, end, Mathf.InverseLerp(pos1, pos2, i));
                             an_s.delta[i] = new[] { lerp.x, lerp.y, lerp.z };
                         }
+                        AddToHistoryNIS(new Interpolate(currentlyEditingObject, an_s, old_delta));
                     }
                 } else if (BoneSubEdit.activeSelf)
                 {
@@ -2382,15 +2737,25 @@ public class Main : MonoBehaviour
 
     public void ApplyDeltaCount()
     {
-        short val = 0;
-        short old_v = 0;
+        short val;
+        short old_v;
         try {
             val = short.Parse(deltacountinp.text);
         } catch { return; }
         if (val < 1) return;
+        NISLoader.Animation[] anims = new NISLoader.Animation[3];
+        float[][][] old_delta = new float[3][][];
         if (EditingAnimation_t != null)
         {
+            anims[0] = EditingAnimation_t.subAnimations[0];
             var d = EditingAnimation_t.subAnimations[0].delta;
+            old_delta[0] = new float[d.Length][];
+            for (int i = 0; i < d.Length; i++)
+            {
+                old_delta[0][i] = new float[d[i].Length];
+                for (int j = 0; j < d[i].Length; j++)
+                    old_delta[0][i][j] = d[i][j];
+            }
             old_v = (short)d.Length;
             float[][] new_d = new float[val][];
             for (int i = 0; i < val; i++)
@@ -2401,7 +2766,15 @@ public class Main : MonoBehaviour
         }
         if (EditingAnimation_s != null)
         {
+            anims[1] = EditingAnimation_s.subAnimations[0];
             var d = EditingAnimation_s.subAnimations[0].delta;
+            old_delta[1] = new float[d.Length][];
+            for (int i = 0; i < d.Length; i++)
+            {
+                old_delta[1][i] = new float[d[i].Length];
+                for (int j = 0; j < d[i].Length; j++)
+                    old_delta[1][i][j] = d[i][j];
+            }
             old_v = (short)d.Length;
             float[][] new_d = new float[val][];
             for (int i = 0; i < val; i++)
@@ -2412,7 +2785,15 @@ public class Main : MonoBehaviour
         }
         if (EditingAnimation_q != null)
         {
+            anims[2] = EditingAnimation_q.subAnimations[0];
             var d = EditingAnimation_q.subAnimations[0].delta;
+            old_delta[2] = new float[d.Length][];
+            for (int i = 0; i < d.Length; i++)
+            {
+                old_delta[2][i] = new float[d[i].Length];
+                for (int j = 0; j < d[i].Length; j++)
+                    old_delta[2][i][j] = d[i][j];
+            }
             old_v = (short)d.Length;
             if (old_v == 0)
             {
@@ -2430,6 +2811,7 @@ public class Main : MonoBehaviour
             EditingAnimation_q.subAnimations[0].delta = new_d;
         }
         AnimationsEditorObjectSelected(currentlyEditingObject);
+        AddToHistoryNIS(new ChangeDeltaC(currentlyEditingObject, anims, old_delta));
     }
  
     public static int ELFChunkSize;
@@ -2506,11 +2888,14 @@ public class Main : MonoBehaviour
         }
     }
 
+    private int rewinded_this_frame;
+
     public void TimelineRewindedAnim(float t)
     {
         if (tabnum != 2) return;
         t = t / 15f / totalLength;
         TimelineRewinded(t);
+        rewinded_this_frame = 3;
     }
 
     [HideInInspector]

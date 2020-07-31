@@ -75,6 +75,12 @@ public class MoveCameraEntry : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     public void OnEndDrag(PointerEventData eventData)
     {
         if (somethingwasdone)
+        {
             main.ChangeCameraTrack(main.curcam);
+            if (mode == -1)
+                main.AddToHistoryCam(new Main.SwapCameraTrack(main.curcam, entry));
+            else if (mode == 1)
+                main.AddToHistoryCam(new Main.SwapCameraTrack(main.curcam, entry + 1));
+        }
     }
 }
