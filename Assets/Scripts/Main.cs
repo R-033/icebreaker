@@ -2402,10 +2402,11 @@ public class Main : MonoBehaviour
         PlayerPrefs.SetString("GameDir", /*folders[0]*/ GameDirInput.text);
         UpdateGameSelection();
     }
+    
+    public static byte[] f_orig;
 
     public void Save()
     {
-        byte[] f_orig;
         List<byte> f;
         int oldsize;
         SavedText.text = "Saved";
@@ -2571,17 +2572,9 @@ public class Main : MonoBehaviour
                 animdata.AddRange(BitConverter.GetBytes((uint)AnimationNames));
                 animdata.AddRange(BitConverter.GetBytes((uint)0));
                 animdata.AddRange(BitConverter.GetBytes((uint)0));
-
-                path = "/NIS/Scene_" + nisname + "_BundleB.bun";
-                if (!File.Exists(GameDirectory + path))
-                {
-                    path = path.ToUpper();
-                    if (!File.Exists(GameDirectory + path))
-                        throw new Exception("File does not exist");
-                }
-                f_orig = File.ReadAllBytes(GameDirectory + path);
-                f = f_orig.ToList();
                 
+                f = f_orig.ToList();
+
                 f.RemoveRange(ELFChunkStart + AnimationBank_Offset, 4);
                 f.InsertRange(ELFChunkStart + AnimationBank_Offset, BitConverter.GetBytes((uint)AnimationBankOffset));
                 oldsize = BitConverter.ToInt32(f_orig, ELFChunkStart + ELFData_SizeOffset);
@@ -2679,6 +2672,14 @@ public class Main : MonoBehaviour
                 f.RemoveRange(ELFChunkSize, 4);
                 f.InsertRange(ELFChunkSize, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize))));
 
+                path = "/NIS/Scene_" + nisname + "_BundleB.bun";
+                if (!File.Exists(GameDirectory + path))
+                {
+                    path = path.ToUpper();
+                    if (!File.Exists(GameDirectory + path))
+                        throw new Exception("File does not exist");
+                }
+                
                 File.WriteAllBytes(GameDirectory + path, f.ToArray());
                 } catch (Exception e)
                 {

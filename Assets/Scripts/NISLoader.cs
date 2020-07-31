@@ -713,6 +713,7 @@ public class NISLoader : MonoBehaviour
 			bytes = File.ReadAllBytes(gamepath + path.ToUpper());
 		else
 			return (new List<Animation>(), new List<Skeleton>());
+		Main.f_orig = bytes;
 		bool modeldata;
 		byte[] data;
 		int offset;
