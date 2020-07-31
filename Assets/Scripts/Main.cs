@@ -856,7 +856,6 @@ public class Main : MonoBehaviour
             historyAnimations.RemoveAt(0);
             currentEntryAnimations--;
         }
-        Debug.Log("AddToHistoryNIS");
     }
 
     void UndoNIS()
