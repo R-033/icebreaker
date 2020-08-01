@@ -28,6 +28,7 @@ public class Main : MonoBehaviour
     public GameObject[] HiddenWhenNoNIS;
     public GameObject[] HiddenWhenNoCamera;
     public RectTransform NisList;
+    public RectTransform NisList2;
     public GameObject NisListPrefab;
     public GameObject ObjectListPrefab;
     public RectTransform Objectlist;
@@ -1608,12 +1609,15 @@ public class Main : MonoBehaviour
                         while (i % 4 != 0)
                             i--;
                         entry = Instantiate(NisListPrefab, NisList);
-                        entry.transform.GetChild(1).GetComponent<Text>().text = knownNames.ContainsKey(NISHash) ? knownNames[NISHash] : "0x" + NISHash.ToString("X8");
+                        string nnn = knownNames.ContainsKey(NISHash) ? knownNames[NISHash] : "0x" + NISHash.ToString("X8");
+                        entry.transform.GetChild(1).GetComponent<Text>().text = nnn;
                         entry.GetComponent<Toggle>().group = group;
                         if (knownNames.ContainsKey(NISHash))
                             knownNames.Remove(NISHash);
                         else
+                        {
                             entry.transform.GetChild(1).GetComponent<Text>().color = Color.yellow;
+                        }
                         if (!first_passed)
                         {
                             entry.GetComponent<Toggle>().isOn = true;
@@ -1652,7 +1656,148 @@ public class Main : MonoBehaviour
     public static bool CameraSaveDisabled;
     public static int LoggingMode;
 
-    //public InputField DeltaCount;
+    public InputField ImportingLZCPath;
+    public RectTransform CameraTrackListImport;
+    List<(NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[])> ImportCamEntries;
+    public Button ImpExpButton;
+
+    public void ImportCameraTrack()
+    {
+        if (CameraTrackListImport.childCount == 0) return;
+        Toggle t = CameraTrackListImport.GetComponent<ToggleGroup>().ActiveToggles().ToArray()[0];
+        int camtrack = t.transform.GetComponent<RectTransform>().GetSiblingIndex();
+        cameratrack.Add(ImportCamEntries[camtrack]);
+        Dropdown.OptionData opt = new Dropdown.OptionData();
+        opt.text = ImportCamEntries[camtrack].Item1.TrackName;
+        int oldcur = curcam;
+        AddToHistoryCam(new CreateCameraTrack(cameratrack.Count - 1, oldcur, cameratrack[cameratrack.Count - 1]));
+        dontUseHistory = true;
+        CameraTrackSelection.options.Add(opt);
+        CameraTrackSelection.value = 0;
+        CameraTrackSelection.value = cameratrack.Count - 1;
+        updlimit = false;
+        ChangeCameraTrack(cameratrack.Count - 1);
+        dontUseHistory = false;
+        Debug.Log("Imported " + ImportCamEntries[camtrack].Item1.TrackName);
+    }
+
+    public void OpenNISForImporting()
+    {
+        foreach (RectTransform tr in CameraTrackListImport)
+            Destroy(tr.gameObject);
+        if (NisList2.childCount == 0) return;
+        Toggle t = NisList2.GetComponent<ToggleGroup>().ActiveToggles().ToArray()[0];
+        string nisname = t.transform.GetChild(1).GetComponent<Text>().text;
+        bool usehash = false;
+        uint hash = 0;
+        if (nisname.StartsWith("0x"))
+        {
+            usehash = true;
+            hash = Convert.ToUInt32(nisname.Substring(2), 16);
+        }
+        ImportCamEntries = null;
+        int off;
+        if (usehash)
+        {
+            (off, ImportCamEntries) = NISLoader.LookupCamera(GameDirectory, hash);
+        }
+        else
+        {
+            (off, ImportCamEntries) = NISLoader.LoadCameraTrack(nisname, GameDirectory);
+        }
+        GameObject entry;
+        ToggleGroup group = CameraTrackListImport.GetComponent<ToggleGroup>();
+        bool first_passed = false;
+        foreach (var cam in ImportCamEntries)
+        {
+            entry = Instantiate(NisListPrefab, CameraTrackListImport);
+            string nnn = cam.Item1.TrackName;
+            entry.transform.GetChild(1).GetComponent<Text>().text = nnn;
+            entry.GetComponent<Toggle>().group = group;
+            if (!first_passed)
+            {
+                entry.GetComponent<Toggle>().isOn = true;
+                first_passed = true;
+            }
+        }
+    }
+
+    public void SelectLZCForImporting()
+    {
+        foreach (RectTransform tr in NisList2)
+            Destroy(tr.gameObject);
+        foreach (RectTransform tr in CameraTrackListImport)
+            Destroy(tr.gameObject);
+        ImportCamEntries = null;
+        string path = ImportingLZCPath.text;
+        if (string.IsNullOrEmpty(path))
+            path = GameDirectory;
+        if (!File.Exists(path) && !Directory.Exists(path))
+            return;
+        string gamepath, filepath;
+        if (File.Exists(path))
+        {
+            gamepath = GameDirectory;
+            filepath = path;
+        } else {
+            gamepath = path;
+            filepath = path + "/GLOBAL/InGameB.lzc";
+            if (!File.Exists(filepath))
+            {
+                filepath = path + "/GLOBAL/INGAMEB.LZC";
+                if (!File.Exists(filepath))
+                    return;
+            }
+        }
+        string[] f2 = Directory.GetFiles(gamepath + "/NIS/");
+        bool first_passed = false;
+        Dictionary<uint, string> knownNames = new Dictionary<uint, string>();
+        foreach (string bun in f2)
+        {
+            string filename = Path.GetFileName(bun);
+            if (filename.StartsWith("Scene_") && filename.EndsWith("BundleB.bun") || filename.StartsWith("SCENE_") && filename.EndsWith("BUNDLEB.BUN"))
+            {
+                string nisname = filename.Substring(6).Split('_')[0];
+                knownNames.Add(NISLoader.BinHash(nisname), nisname);
+            }
+        }
+        byte[] f = File.ReadAllBytes(filepath);
+        f = NISLoader.DecompressJZC(f);
+        
+        ToggleGroup group = NisList2.GetComponent<ToggleGroup>();
+        GameObject entry;
+        if (f != null)
+        {
+            for (int i = 0; i < f.Length; i += 4)
+            {
+                if (f[i] == 0x10 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x00)
+                {
+                    i += 4;
+                    int end = i + BitConverter.ToInt32(f, i);
+                    i += 4;
+                    uint NISHash = BitConverter.ToUInt32(f, i);
+                    i = end - 4;
+                    while (i % 4 != 0)
+                        i--;
+                    entry = Instantiate(NisListPrefab, NisList2);
+                    string nnn = knownNames.ContainsKey(NISHash) ? knownNames[NISHash] : "0x" + NISHash.ToString("X8");
+                    entry.transform.GetChild(1).GetComponent<Text>().text = nnn;
+                    entry.GetComponent<Toggle>().group = group;
+                    if (knownNames.ContainsKey(NISHash))
+                        knownNames.Remove(NISHash);
+                    else
+                    {
+                        entry.transform.GetChild(1).GetComponent<Text>().color = Color.yellow;
+                    }
+                    if (!first_passed)
+                    {
+                        entry.GetComponent<Toggle>().isOn = true;
+                        first_passed = true;
+                    }
+                }
+            }
+        }
+    }
 
     public void OpenNIS()
     {
@@ -1816,6 +1961,7 @@ public class Main : MonoBehaviour
         ChangeCameraTrack(0);
         TimelineLock = false;
         TimelineLockToggle.isOn = false;
+        ImpExpButton.interactable = true;
     }
 
     public Toggle TimelineLockToggle;
