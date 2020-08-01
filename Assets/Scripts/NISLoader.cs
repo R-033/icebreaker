@@ -1177,6 +1177,7 @@ public class NISLoader : MonoBehaviour
 				offset += 4;
 				int childCount = Convert.ToInt32(BitConverter.ToUInt16(data, offset));
 				offset += 2;
+				// count
 				anim.unk1 = BitConverter.ToUInt16(data, offset);
 				offset += 2;
 				for (int childNum = 0; childNum < childCount; childNum++)

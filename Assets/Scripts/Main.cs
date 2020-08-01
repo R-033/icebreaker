@@ -2447,57 +2447,97 @@ public class Main : MonoBehaviour
                                 animationChildOffsets[animationChildOffsets.Count - 1][childNum] = animdata.Count;
                                 animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].numDofs));
                                 animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].quantBits));
+                                List<float[]> delta = anims[i].subAnimations[childNum].delta.ToList();
+                                delta.Add(new float[anims[i].subAnimations[childNum].numDofs]);
+                                for (int x = 0; x < anims[i].subAnimations[childNum].numDofs; x++)
+                                    delta[delta.Count - 1][x] = Mathf.LerpUnclamped(delta.Count > 2 ? delta[delta.Count - 3][x] : 0f, delta.Count > 1 ? delta[delta.Count - 2][x] : 0f, 2f);
+                                if (anims[i].subAnimations[childNum].numDofs == 4)
+                                {
+                                    // rotation fix?
+                                    Vector3[] deltaeuler = new Vector3[delta.Count];
+                                    for (int deltaNum = 0; deltaNum < delta.Count; deltaNum++)
+                                        deltaeuler[deltaNum] = new Quaternion(delta[deltaNum][0], delta[deltaNum][1], delta[deltaNum][2], delta[deltaNum][3]).eulerAngles;
+                                    for (int deltaNum = 1; deltaNum < delta.Count; deltaNum++)
+                                    {
+                                        float x, y, z, x_old, y_old, z_old;
+                                        x = deltaeuler[deltaNum].x;
+                                        y = deltaeuler[deltaNum].y;
+                                        z = deltaeuler[deltaNum].z;
+                                        x_old = deltaeuler[deltaNum - 1].x;
+                                        y_old = deltaeuler[deltaNum - 1].y;
+                                        z_old = deltaeuler[deltaNum - 1].z;
+
+                                        float delta_x = Mathf.DeltaAngle(x_old, x);
+                                        float delta_y = Mathf.DeltaAngle(y_old, y);
+                                        float delta_z = Mathf.DeltaAngle(z_old, z);
+
+                                        deltaeuler[deltaNum] = new Vector3(x_old + delta_x, y_old + delta_y, z_old + delta_z);
+                                    }
+                                    for (int deltaNum = 0; deltaNum < delta.Count; deltaNum++)
+                                    {
+                                        Quaternion quat = Quaternion.Euler(deltaeuler[deltaNum]);
+                                        delta[deltaNum][0] = quat.x;
+                                        delta[deltaNum][1] = quat.y;
+                                        delta[deltaNum][2] = quat.z;
+                                        delta[deltaNum][3] = quat.w;
+                                    }
+                                }
+                                double[][] header = new double[anims[i].subAnimations[childNum].numDofs][];
                                 for (int dof = 0; dof < anims[i].subAnimations[childNum].numDofs; dof++)
                                 {
-                                    float header_0 = 0f;
-                                    float header_1 = 0f;
-                                    for (int deltaNum = 1; deltaNum < anims[i].subAnimations[childNum].delta.Length; deltaNum++)
+                                    double header_0 = delta[1][dof] - delta[0][dof];
+                                    for (int deltaNum = 2; deltaNum < delta.Count; deltaNum++)
                                     {
-                                        float d = anims[i].subAnimations[childNum].delta[deltaNum][dof] - anims[i].subAnimations[childNum].delta[deltaNum - 1][dof];
+                                        double d = delta[deltaNum][dof] - delta[deltaNum - 1][dof];
                                         if (d < header_0)
                                             header_0 = d;
                                     }
-                                    for (int deltaNum = 1; deltaNum < anims[i].subAnimations[childNum].delta.Length; deltaNum++)
+                                    double header_1 = delta[1][dof] - delta[0][dof] - header_0;
+                                    for (int deltaNum = 2; deltaNum < delta.Count; deltaNum++)
                                     {
-                                        float d = anims[i].subAnimations[childNum].delta[deltaNum][dof] - anims[i].subAnimations[childNum].delta[deltaNum - 1][dof] - header_0;
+                                        double d = delta[deltaNum][dof] - delta[deltaNum - 1][dof] - header_0;
                                         if (d > header_1)
                                             header_1 = d;
                                     }
                                     switch (anims[i].subAnimations[childNum].quantBits)
                                     {
                                         case 8:
-                                            header_1 /= 0xff;
+                                            header_1 *= 0.003921568627450980392157; // / 0xff
                                             break;
                                         case 0x10:
-                                            header_1 /= 0xffff;
+                                            header_1 *= 1.525902189669642175937E-5; // / 0xffff
                                             break;
                                     }
-                                    anims[i].subAnimations[childNum].header[dof][0] = header_0;
-                                    anims[i].subAnimations[childNum].header[dof][1] = header_1;
-                                    anims[i].subAnimations[childNum].header[dof][2] = anims[i].subAnimations[childNum].delta[0][dof];
-                                    animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].header[dof][0]));
-                                    animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].header[dof][1]));
-                                    animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].header[dof][2]));
+                                    header[dof] = new double[3];
+                                    header[dof][0] = header_0;
+                                    header[dof][1] = header_1;
+                                    header[dof][2] = delta[0][dof];
+                                    animdata.AddRange(BitConverter.GetBytes(Convert.ToSingle(header_0)));
+                                    animdata.AddRange(BitConverter.GetBytes(Convert.ToSingle(header_1)));
+                                    animdata.AddRange(BitConverter.GetBytes(delta[0][dof]));
                                 }
-                                List<float[]> delta = anims[i].subAnimations[childNum].delta.ToList();
-                                delta.Add(new float[anims[i].subAnimations[childNum].numDofs]);
-                                for (int x = 0; x < anims[i].subAnimations[childNum].numDofs; x++)
-                                    delta[delta.Count - 1][x] = Mathf.LerpUnclamped(delta.Count > 2 ? delta[delta.Count - 3][x] : 0f, delta.Count > 1 ? delta[delta.Count - 2][x] : 0f, 2f);
                                 for (int deltaNum = 1; deltaNum < delta.Count; deltaNum++)
                                 {
                                     for (int x = 0; x < anims[i].subAnimations[childNum].numDofs; x++)
                                     {
-                                        double compressed_value = ((double)delta[deltaNum][x] - (double)delta[deltaNum - 1][x] - (double)anims[i].subAnimations[childNum].header[x][0]) / (double)anims[i].subAnimations[childNum].header[x][1];
-                                        if (double.IsNaN(compressed_value) || double.IsInfinity(compressed_value))
-                                            compressed_value = 0.0;
-                                        compressed_value = Math.Round(compressed_value);
+                                        double compressed_value = ((double)delta[deltaNum][x] - (double)delta[deltaNum - 1][x] - header[x][0]) / header[x][1];
+                                        if (double.IsNaN(compressed_value))
+                                            compressed_value = 0;
+                                        if (double.IsInfinity(compressed_value))
+                                            compressed_value = anims[i].subAnimations[childNum].quantBits == 8 ? 0xff : 0xffff;
+                                        if (compressed_value < 0)
+                                            compressed_value = 0;
                                         switch (anims[i].subAnimations[childNum].quantBits)
                                         {
                                             case 8:
-                                                animdata.Add(Convert.ToByte(compressed_value));
+                                                if (compressed_value > 0xff)
+                                                    compressed_value = 0xff;
+                                                animdata.Add(Convert.ToByte(Math.Round(compressed_value)));
                                                 break;
                                             case 0x10:
-                                                animdata.AddRange(BitConverter.GetBytes(Convert.ToUInt16(compressed_value)));
+                                                if (compressed_value > 0xffff)
+                                                    compressed_value = 0xffff;
+                                                animdata.AddRange(BitConverter.GetBytes(Convert.ToUInt16(Math.Round(compressed_value))));
                                                 break;
                                         }
                                     }
@@ -2538,7 +2578,7 @@ public class Main : MonoBehaviour
                             animdata.AddRange(BitConverter.GetBytes(NISLoader.checkSum));
                             animdata.AddRange(BitConverter.GetBytes((uint)animationCompoundOffsets.Last()));
                             animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].subAnimations.Count));
-                            animdata.AddRange(BitConverter.GetBytes(anims[i].unk1)); // not sure
+                            animdata.AddRange(BitConverter.GetBytes((ushort)(anims[i].subAnimations[0].delta.Length))); // todo more counts?
                             for (int childNum = 0; childNum < anims[i].subAnimations.Count; childNum++)
                             {
                                 animdata.AddRange(BitConverter.GetBytes((uint)animationChildMetaOffsets[animationChildOffsets.Count - 1][childNum]));
