@@ -1322,21 +1322,26 @@ public class NISLoader : MonoBehaviour
 		return output;
 	}
 
-	public static (int, List<(CameraTrackHeader, CameraTrackEntry[])>) LoadCameraTrack(string nisname, string gamepath)
+	public static (int, List<(CameraTrackHeader, CameraTrackEntry[])>) LoadCameraTrack(string nisname, string gamepath, bool fullpath = false)
 	{
-		return LookupCamera(gamepath, BinHash(nisname));
+		return LookupCamera(gamepath, BinHash(nisname), fullpath);
 	}
 
-	public static (int, List<(CameraTrackHeader, CameraTrackEntry[])>) LookupCamera(string gamepath, uint NISHashNeeded)
+	public static (int, List<(CameraTrackHeader, CameraTrackEntry[])>) LookupCamera(string gamepath, uint NISHashNeeded, bool fullpath = false)
 	{
 		byte[] f;
-		string path = "/GLOBAL/InGameB.lzc";
-		if (File.Exists(gamepath + path))
-			f = File.ReadAllBytes(gamepath + path);
-		else if (File.Exists(gamepath + path.ToUpper()))
-			f = File.ReadAllBytes(gamepath + path.ToUpper());
-		else
-			return (0, new List<(CameraTrackHeader, CameraTrackEntry[])>());
+        if (fullpath)
+            f = File.ReadAllBytes(gamepath);
+        else
+        {
+            string path = "/GLOBAL/InGameB.lzc";
+            if (File.Exists(gamepath + path))
+                f = File.ReadAllBytes(gamepath + path);
+            else if (File.Exists(gamepath + path.ToUpper()))
+                f = File.ReadAllBytes(gamepath + path.ToUpper());
+            else
+                return (0, new List<(CameraTrackHeader, CameraTrackEntry[])>());
+        }
 		f = DecompressJZC(f);
 		int offset = 0;
 		int CameraTrackHeader_size = Marshal.SizeOf(typeof(CameraTrackHeader));
@@ -1352,7 +1357,8 @@ public class NISLoader : MonoBehaviour
                 if (f[i] == 0x00 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x80)
                 {
                     i += 4;
-                    SizeOffset = i;
+                    if (!fullpath)
+                        SizeOffset = i;
                 }
                 if (f[i] == 0x10 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x00)
 				{

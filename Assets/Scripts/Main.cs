@@ -1697,13 +1697,35 @@ public class Main : MonoBehaviour
         }
         ImportCamEntries = null;
         int off;
-        if (usehash)
+        string path = ImportingLZCPath.text;
+        if (string.IsNullOrEmpty(path))
+            path = GameDirectory;
+        if (!File.Exists(path) && !Directory.Exists(path))
+            return;
+        string gamepath, filepath;
+        if (File.Exists(path))
         {
-            (off, ImportCamEntries) = NISLoader.LookupCamera(GameDirectory, hash);
+            gamepath = GameDirectory;
+            filepath = path;
         }
         else
         {
-            (off, ImportCamEntries) = NISLoader.LoadCameraTrack(nisname, GameDirectory);
+            gamepath = path;
+            filepath = path + "/GLOBAL/InGameB.lzc";
+            if (!File.Exists(filepath))
+            {
+                filepath = path + "/GLOBAL/INGAMEB.LZC";
+                if (!File.Exists(filepath))
+                    return;
+            }
+        }
+        if (usehash)
+        {
+            (off, ImportCamEntries) = NISLoader.LookupCamera(filepath, hash, true);
+        }
+        else
+        {
+            (off, ImportCamEntries) = NISLoader.LoadCameraTrack(nisname, filepath, true);
         }
         GameObject entry;
         ToggleGroup group = CameraTrackListImport.GetComponent<ToggleGroup>();
@@ -2927,7 +2949,7 @@ public class Main : MonoBehaviour
                         if (!File.Exists(GameDirectory + path))
                             throw new Exception("File does not exist");
                     }
-                    f_orig = File.ReadAllBytes(GameDirectory + path);
+                    byte[] f_orig = File.ReadAllBytes(GameDirectory + path);
                     f_orig = NISLoader.DecompressJZC(f_orig);
                     f = f_orig.ToList();
                     List<byte> chunk = new List<byte>();
