@@ -204,6 +204,7 @@ public class Main : MonoBehaviour
         GetComponent<CanvasScaler>().scaleFactor = PlayerPrefs.GetFloat("GUIScale", 1f);
         if (PlayerPrefs.GetString("GameDir") == "")
             AboutPage.SetActive(true);
+        NameField.text = PlayerPrefs.GetString("AuthorName", "Anon") == "Anon" ? "" : PlayerPrefs.GetString("AuthorName", "Anon");
     }
 
     private float timeinsec;
@@ -835,6 +836,16 @@ public class Main : MonoBehaviour
         public override string ToString()
         {
             return "change " + objname + " delta count";
+        }
+    }
+
+    public class PasteValues : ChangeDeltaC
+    {
+        public PasteValues(string _objname, NISLoader.Animation[] _anim, float[][][] _old_values) : base(_objname, _anim, _old_values) { }
+        
+        public override string ToString()
+        {
+            return "edit values";
         }
     }
 
@@ -1954,17 +1965,20 @@ public class Main : MonoBehaviour
 
     public InputField[] RootValues;
     public InputField[] BoneValues;
+    private bool blockupdcall;
 
     public void RootValuesChanged()
     {
+        if (blockupdcall) return;
         int pos = (int)Mathf.Floor(timeinsec * 15f);
         NISLoader.Animation an_t = EditingAnimation_t;
         NISLoader.Animation an_q = EditingAnimation_q;
         NISLoader.Animation an_s = EditingAnimation_s;
         bool changed;
+        bool globalchanged = false;
         float[] old;
         float[][] d;
-        float[][] old_delta = null;
+        float[][][] old_delta = new float[3][][];
         if (RootSubEdit.activeSelf)
         {
             if (an_t != null)
@@ -1975,12 +1989,12 @@ public class Main : MonoBehaviour
                 if (!gizmo.isTransforming && !dontUseHistory)
                 {
                     d = an_t.delta;
-                    old_delta = new float[d.Length][];
+                    old_delta[0] = new float[d.Length][];
                     for (int i = 0; i < d.Length; i++)
                     {
-                        old_delta[i] = new float[d[i].Length];
+                        old_delta[0][i] = new float[d[i].Length];
                         for (int j = 0; j < d[i].Length; j++)
-                            old_delta[i][j] = d[i][j];
+                            old_delta[0][i][j] = d[i][j];
                     }
                 }
                 try
@@ -1990,10 +2004,10 @@ public class Main : MonoBehaviour
                     if (old[0] != an_t.delta[pos][0] || old[1] != an_t.delta[pos][1] || old[2] != an_t.delta[pos][2])
                         changed = true;
                 } catch {}
-                if (changed && !gizmo.isTransforming && !dontUseHistory && rewinded_this_frame == 0)
-                {
-                    AddToHistoryNIS(new MoveObject(currentlyEditingObject, an_t, old_delta));
-                }
+                if (changed)
+                    globalchanged = true;
+                else
+                    an_t = null;
             }
             if (an_q != null)
             {
@@ -2003,12 +2017,12 @@ public class Main : MonoBehaviour
                 if (!gizmo.isTransforming && !dontUseHistory)
                 {
                     d = an_q.delta;
-                    old_delta = new float[d.Length][];
+                    old_delta[1] = new float[d.Length][];
                     for (int i = 0; i < d.Length; i++)
                     {
-                        old_delta[i] = new float[d[i].Length];
+                        old_delta[1][i] = new float[d[i].Length];
                         for (int j = 0; j < d[i].Length; j++)
-                            old_delta[i][j] = d[i][j];
+                            old_delta[1][i][j] = d[i][j];
                     }
                 }
                 try
@@ -2019,10 +2033,10 @@ public class Main : MonoBehaviour
                     if (old[0] != an_q.delta[pos][0] || old[1] != an_q.delta[pos][1] || old[2] != an_q.delta[pos][2] || old[3] != an_q.delta[pos][3])
                         changed = true;
                 } catch {}
-                if (changed && !gizmo.isTransforming && !dontUseHistory && rewinded_this_frame == 0)
-                {
-                    AddToHistoryNIS(new MoveObject(currentlyEditingObject, an_q, old_delta));
-                }
+                if (changed)
+                    globalchanged = true;
+                else
+                    an_q = null;
             }
             if (an_s != null)
             {
@@ -2032,12 +2046,12 @@ public class Main : MonoBehaviour
                 if (!gizmo.isTransforming)
                 {
                     d = an_s.delta;
-                    old_delta = new float[d.Length][];
+                    old_delta[2] = new float[d.Length][];
                     for (int i = 0; i < d.Length; i++)
                     {
-                        old_delta[i] = new float[d[i].Length];
+                        old_delta[2][i] = new float[d[i].Length];
                         for (int j = 0; j < d[i].Length; j++)
-                            old_delta[i][j] = d[i][j];
+                            old_delta[2][i][j] = d[i][j];
                     }
                 }
                 try
@@ -2047,10 +2061,14 @@ public class Main : MonoBehaviour
                     if (old[0] != an_s.delta[pos][0] || old[1] != an_s.delta[pos][1] || old[2] != an_s.delta[pos][2])
                         changed = true;
                 } catch {}
-                if (changed && !gizmo.isTransforming && !dontUseHistory && rewinded_this_frame == 0)
-                {
-                    AddToHistoryNIS(new MoveObject(currentlyEditingObject, an_s, old_delta));
-                }
+                if (changed)
+                    globalchanged = true;
+                else
+                    an_s = null;
+            }
+            if (globalchanged && !gizmo.isTransforming && !dontUseHistory && rewinded_this_frame == 0)
+            {
+                AddToHistoryNIS(new PasteValues(currentlyEditingObject, new [] { an_t, an_q, an_s }, old_delta));
             }
         }
     }
@@ -2144,6 +2162,7 @@ public class Main : MonoBehaviour
                         }
                         AddToHistoryNIS(new Interpolate(currentlyEditingObject, an_t, old_delta));
                     }
+                    Debug.Log("Interpolated position successfully");
                 } else if (BoneSubEdit.activeSelf)
                 {
                     Debug.Log("Bone interpolation is not implemented yet");
@@ -2184,6 +2203,7 @@ public class Main : MonoBehaviour
                         }
                         AddToHistoryNIS(new Interpolate(currentlyEditingObject, an_q, old_delta));
                     }
+                    Debug.Log("Interpolated rotation successfully");
                 } else if (BoneSubEdit.activeSelf)
                 {
                     Debug.Log("Bone interpolation is not implemented yet");
@@ -2224,6 +2244,7 @@ public class Main : MonoBehaviour
                         }
                         AddToHistoryNIS(new Interpolate(currentlyEditingObject, an_s, old_delta));
                     }
+                    Debug.Log("Interpolated scale successfully");
                 } else if (BoneSubEdit.activeSelf)
                 {
                     Debug.Log("Bone interpolation is not implemented yet");
@@ -2236,6 +2257,7 @@ public class Main : MonoBehaviour
                     copied_values_transform = new string[RootValues.Length];
                     for (int i = 0; i < RootValues.Length; i++)
                         copied_values_transform[i] = RootValues[i].text;
+                    Debug.Log("Values copied");
                 }
                 else if (BoneSubEdit.activeSelf)
                 {
@@ -2246,11 +2268,15 @@ public class Main : MonoBehaviour
             case 7:
                 if (RootSubEdit.activeSelf)
                 {
+                    blockupdcall = true;
                     if (copied_values_transform != null)
                     {
                         for (int i = 0; i < RootValues.Length; i++)
                             RootValues[i].text = copied_values_transform[i];
                     }
+                    blockupdcall = false;
+                    RootValuesChanged();
+                    Debug.Log("Values pasted");
                 }
                 else if (BoneSubEdit.activeSelf)
                 {
@@ -2615,6 +2641,24 @@ public class Main : MonoBehaviour
                 
                 f = f_orig.ToList();
 
+                if (NISLoader.DescriptionOffset != 0)
+                {
+                    int desclength = NISLoader.SceneDescription.Length + 1;
+                    while (desclength % 4 != 0)
+                        desclength++;
+                    f.RemoveRange(NISLoader.DescriptionOffset, desclength);
+                    string NewDescription = "Edited by " + PlayerPrefs.GetString("AuthorName", "Anon") + " in icebreaker " + Application.version;
+                    NISLoader.SceneDescription = NewDescription;
+                    NISProps[7].text = NISLoader.SceneDescription;
+                    List<byte> bb = NewDescription.ToArray().Select(x => (byte) x).ToList();
+                    do
+                    {
+                        bb.Add(0);
+                    } while (bb.Count % 4 != 0);
+
+                    f.InsertRange(NISLoader.DescriptionOffset, bb);
+                }
+
                 f.RemoveRange(ELFChunkStart + AnimationBank_Offset, 4);
                 f.InsertRange(ELFChunkStart + AnimationBank_Offset, BitConverter.GetBytes((uint)AnimationBankOffset));
                 oldsize = BitConverter.ToInt32(f_orig, ELFChunkStart + ELFData_SizeOffset);
@@ -2775,6 +2819,17 @@ public class Main : MonoBehaviour
     public InputField deltacountinp;
     public Button deltacountinpb;
 
+    public InputField NameField;
+
+    public void NameChanged()
+    {
+        string n = NameField.text;
+        if (string.IsNullOrEmpty(n))
+            PlayerPrefs.SetString("AuthorName", "Anon");
+        else
+            PlayerPrefs.SetString("AuthorName", n);
+    }
+
     public void ApplyDeltaCount()
     {
         short val;
@@ -2852,6 +2907,7 @@ public class Main : MonoBehaviour
         }
         AnimationsEditorObjectSelected(currentlyEditingObject);
         AddToHistoryNIS(new ChangeDeltaC(currentlyEditingObject, anims, old_delta));
+        Debug.Log("Delta count changed");
     }
  
     public static int ELFChunkSize;
@@ -3219,21 +3275,29 @@ public class Main : MonoBehaviour
                     for (int i = 0; i < CameraEditFlags.Length; i++)
                         copied_flags[i] = CameraEditFlags[i].text;
                 }
+                Debug.Log("Values copied");
                 break;
             case 6:
+                blockupdcall = true;
                 if (cameraeditcurtab < 2) {
                     if (copied_values != null)
                     {
                         for (int i = 0; i < CameraEditValues.Length; i++)
                             CameraEditValues[i].text = copied_values[i];
+                        blockupdcall = false;
+                        CameraValuesUpdated();
                     }
                 } else {
                     if (copied_flags != null)
                     {
                         for (int i = 0; i < CameraEditFlags.Length; i++)
                             CameraEditFlags[i].text = copied_flags[i];
+                        blockupdcall = false;
+                        CameraFlagsUpdated();
                     }
                 }
+                blockupdcall = false;
+                Debug.Log("Values pasted");
                 break;
         }
         var h = cameratrack[curcam].Item1;
@@ -3373,6 +3437,7 @@ public class Main : MonoBehaviour
     public void CameraValuesUpdated()
     {
         if (playing || !allow_changes) return;
+        if (blockupdcall) return;
         bool changed = false;
         NISLoader.CameraTrackEntry old_ = cameratrack[curcam].Item2[cursegment].Clone();
         float old;
@@ -3588,6 +3653,7 @@ public class Main : MonoBehaviour
     public void CameraFlagsUpdated()
     {
         if (playing || !allow_changes) return;
+        if (blockupdcall) return;
         bool changed = false;
         NISLoader.CameraTrackEntry old_ = cameratrack[curcam].Item2[cursegment].Clone();
         byte old;

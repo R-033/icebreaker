@@ -538,6 +538,7 @@ public class NISLoader : MonoBehaviour
 
 	public static NisScene SceneInfo;
 	public static string SceneDescription;
+	public static int DescriptionOffset;
 
 	public enum SceneType
 	{
@@ -703,6 +704,7 @@ public class NISLoader : MonoBehaviour
 		SceneInfo = new NisScene();
 		SceneInfo.SceneName = nisname;
 		SceneDescription = "";
+		DescriptionOffset = 0;
 		List<Animation> animations = new List<Animation>();
 		List<Skeleton> skeletons = new List<Skeleton>();
 		byte[] bytes;
@@ -839,9 +841,9 @@ public class NISLoader : MonoBehaviour
 				}
 			}
 		}
-		catch (Exception e)
+		catch// (Exception e)
 		{
-			Debug.LogError(e);
+			//Debug.LogError(e);
 		}
 
 		int size;
@@ -878,6 +880,7 @@ public class NISLoader : MonoBehaviour
 				i += Marshal.SizeOf(typeof(NisScene));
 				// todo add to CXMW
 				//i += 8;
+				DescriptionOffset = i;
 				SceneDescription = TakeString(bytes, i);
 				i += SceneDescription.Length + 1;
 				while (i % 4 != 0)
@@ -888,7 +891,10 @@ public class NISLoader : MonoBehaviour
 			if (bytes[i] == 0x40 && bytes[i + 1] == 0x70 && bytes[i + 2] == 0x03 && bytes[i + 3] == 0x00)
 			{
 				if (string.IsNullOrEmpty(SceneDescription) || SceneDescription.Length <= 4)
+				{
+					DescriptionOffset = 0; // playing safe here
 					SceneDescription = TakeString(bytes, i - 5 * 4);
+				}
 				//i += 4;
 				//size = BitConverter.ToInt32(bytes, i);
 				// todo
