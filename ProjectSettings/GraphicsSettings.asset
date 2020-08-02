@@ -88,10 +88,10 @@ GraphicsSettings:
       standardShaderQuality: 2
       renderingPath: 1
       hdrMode: 1
-      realtimeGICPUUsage: 50
+      realtimeGICPUUsage: 25
       useReflectionProbeBoxProjection: 0
       useReflectionProbeBlending: 0
-      useHDR: 1
+      useHDR: 0
       useDetailNormalMap: 1
       useCascadedShadowMaps: 0
       prefer32BitShadowMaps: 0
@@ -113,4 +113,3 @@ GraphicsSettings:
   m_AlbedoSwatchInfos: []
   m_LightsUseLinearIntensity: 0
   m_LightsUseColorTemperature: 0
-  m_LogWhenShaderIsCompiled: 0

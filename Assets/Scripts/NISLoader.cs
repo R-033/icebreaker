@@ -388,10 +388,27 @@ public class NISLoader : MonoBehaviour
 		float subdelta = Mathf.InverseLerp(start_pos, end_pos, pos);
 		return (anim.delta[start_pos], anim.delta[end_pos], subdelta, start_pos == end_pos && start_pos == anim.delta.Length - 1);
 	}
-
-	public static void ApplyBoneAnimation(Bone[] bones, Animation anim, float curTime)
+	
+	public static (float[], float[], float, bool) EvaluateAnimAbs(Animation anim, float curTime)
 	{
-		(float[], float[], float, bool) eval = EvaluateAnim(anim, curTime);
+		if (anim.type == AnimType.ANIM_COMPOUND)
+		{
+			return EvaluateAnimAbs(anim.subAnimations[0], curTime);
+		}
+		if (anim.delta == null)
+			return (null, null, 0f, false);
+		float pos = curTime;
+		int start_pos = Mathf.Clamp((int) Mathf.Round(pos), 0, anim.delta.Length - 1);
+		return (anim.delta[start_pos], anim.delta[start_pos], 0f, false);
+	}
+
+	public static void ApplyBoneAnimation(Bone[] bones, Animation anim, float curTime, bool absoluteIndex)
+	{
+		(float[], float[], float, bool) eval;
+		if (absoluteIndex)
+			eval = EvaluateAnimAbs(anim, curTime);
+		else
+			eval = EvaluateAnim(anim, curTime);
 		if (eval.Item1 == null) return;
 		int offset;
 		for (int boneNum = 0; boneNum < bones.Length; boneNum++)
@@ -511,13 +528,17 @@ public class NISLoader : MonoBehaviour
 		return pos.y;
 	}
 
-	public static void ApplyCarMovement(Dictionary<string, Transform> players, Animation anim, float t, bool forceY)
+	public static void ApplyCarMovement(Dictionary<string, Transform> players, Animation anim, float t, bool forceY, bool absoluteIndex)
 	{
 		string animtype = anim.name.Split('_').Last();
 		string objname = anim.GetObjectName();
 		if (animtype == "s")
 			return;
-		(float[], float[], float, bool) eval = EvaluateAnim(anim, t);
+		(float[], float[], float, bool) eval;
+		if (absoluteIndex)
+			eval = EvaluateAnimAbs(anim, t);
+		else
+			eval = EvaluateAnim(anim, t);
 		if (eval.Item1 == null) return;
 		if (!players.ContainsKey(objname))
 			return;

@@ -134,39 +134,46 @@ public class Main : MonoBehaviour
         if (type == LogType.Exception || type == LogType.Error)
         {
             string err = condition.Split('\n')[0];
-            if (LogMessage.shown.Contains(err))
-                return;
-            GameObject obj = Instantiate(_LogMessagePrefab, _LogMessageParent);
-            obj.transform.GetChild(0).GetComponent<Text>().text = err;
-            obj.transform.GetComponent<LogMessage>().message = err;
-            LogMessage.shown.Add(err);
-            switch (LoggingMode)
+            if (!LogMessage.shown.Contains(err))
             {
-                case 1:
-                    if (!NISSaveDisabled)
-                    {
-                        NISSaveDisabled = true;
-                        obj = Instantiate(_LogMessagePrefab, _LogMessageParent);
-                        obj.transform.GetChild(0).GetComponent<Text>().text = "It seems like this NIS is not fully supported by icebreaker. Saving is disabled.";
-                        obj.transform.GetChild(0).GetComponent<Text>().color = Color.cyan;
-                        obj.transform.GetComponent<LogMessage>().message = err;
-                        obj.transform.GetComponent<LogMessage>().pinned = true;
-                    }
+                GameObject obj = Instantiate(_LogMessagePrefab, _LogMessageParent);
+                obj.transform.GetChild(0).GetComponent<Text>().text = err;
+                obj.transform.GetComponent<LogMessage>().message = err;
+                LogMessage.shown.Add(err);
+                switch (LoggingMode)
+                {
+                    case 1:
+                        if (!NISSaveDisabled)
+                        {
+                            NISSaveDisabled = true;
+                            obj = Instantiate(_LogMessagePrefab, _LogMessageParent);
+                            obj.transform.GetChild(0).GetComponent<Text>().text = "It seems like this NIS is not fully supported by icebreaker. Saving is disabled.";
+                            obj.transform.GetChild(0).GetComponent<Text>().color = Color.cyan;
+                            obj.transform.GetComponent<LogMessage>().message = err;
+                            obj.transform.GetComponent<LogMessage>().pinned = true;
+                        }
 
-                    break;
-                case 2:
-                    if (!CameraSaveDisabled)
-                    {
-                        CameraSaveDisabled = true;
-                        obj = Instantiate(_LogMessagePrefab, _LogMessageParent);
-                        obj.transform.GetChild(0).GetComponent<Text>().text = "It seems like this camera bank is not fully supported by icebreaker. Saving is disabled.";
-                        obj.transform.GetChild(0).GetComponent<Text>().color = Color.cyan;
-                        obj.transform.GetComponent<LogMessage>().message = err;
-                        obj.transform.GetComponent<LogMessage>().pinned = true;
-                    }
+                        break;
+                    case 2:
+                        if (!CameraSaveDisabled)
+                        {
+                            CameraSaveDisabled = true;
+                            obj = Instantiate(_LogMessagePrefab, _LogMessageParent);
+                            obj.transform.GetChild(0).GetComponent<Text>().text = "It seems like this camera bank is not fully supported by icebreaker. Saving is disabled.";
+                            obj.transform.GetChild(0).GetComponent<Text>().color = Color.cyan;
+                            obj.transform.GetComponent<LogMessage>().message = err;
+                            obj.transform.GetComponent<LogMessage>().pinned = true;
+                        }
 
-                    break;
+                        break;
+                }
             }
+
+            try {
+                log.WriteLine(condition);
+                log.WriteLine(stackTrace);
+                log.WriteLine();
+            } catch { }
         }
         else if (type == LogType.Log)
         {
@@ -174,7 +181,14 @@ public class Main : MonoBehaviour
             obj.transform.GetChild(0).GetComponent<Text>().text = condition;
             obj.transform.GetChild(0).GetComponent<Text>().color = Color.white;
             obj.transform.GetComponent<LogMessage>().message = condition;
+            try {
+                log.WriteLine(condition);
+            } catch { }
         }
+
+        try {
+            log.Flush();
+        } catch { }
     }
 
     public Button[] HistoryButtons;
@@ -206,6 +220,20 @@ public class Main : MonoBehaviour
         if (PlayerPrefs.GetString("GameDir") == "")
             AboutPage.SetActive(true);
         NameField.text = PlayerPrefs.GetString("AuthorName", "Anon") == "Anon" ? "" : PlayerPrefs.GetString("AuthorName", "Anon");
+        try {
+            if (File.Exists("./icebreaker.log"))
+                File.Delete("./icebreaker.log");
+            log = new StreamWriter(new FileStream("./icebreaker.log", FileMode.Create));
+        } catch { }
+    }
+    
+    static private StreamWriter log;
+
+    void OnApplicationQuit()
+    {
+        try {
+            log.Close();
+        } catch { }
     }
 
     private float timeinsec;
@@ -231,7 +259,7 @@ public class Main : MonoBehaviour
 
     private string[] copied_values;
     private string[] copied_flags;
-    private float interpolation_start;
+    private int interpolation_start;
 
     public static float timescale = 1f;
 
@@ -761,12 +789,14 @@ public class Main : MonoBehaviour
         public override void Apply()
         {
             anim.delta = new_values;
+            FindObjectOfType<Main>().rewinded_this_frame = 5;
             FindObjectOfType<Main>().dontUseHistory = true;
         }
 
         public override void Restore()
         {
             anim.delta = old_values;
+            FindObjectOfType<Main>().rewinded_this_frame = 5;
             FindObjectOfType<Main>().dontUseHistory = true;
         }
         
@@ -811,6 +841,7 @@ public class Main : MonoBehaviour
         private NISLoader.Animation[] anim;
         private float[][][] old_values;
         private float[][][] new_values;
+        internal bool selectobj = true;
         
         public override void Apply()
         {
@@ -819,8 +850,12 @@ public class Main : MonoBehaviour
                 if (anim[x] == null) continue;
                 anim[x].delta = new_values[x];
             }
-            FindObjectOfType<Main>().dontUseHistory = true;
-            FindObjectOfType<Main>().AnimationsEditorObjectSelected(FindObjectOfType<Main>().currentlyEditingObject);
+            FindObjectOfType<Main>().rewinded_this_frame = 5;
+            if (selectobj)
+            {
+                FindObjectOfType<Main>().dontUseHistory = true;
+                FindObjectOfType<Main>().AnimationsEditorObjectSelected(FindObjectOfType<Main>().currentlyEditingObject);
+            }
         }
 
         public override void Restore()
@@ -830,8 +865,12 @@ public class Main : MonoBehaviour
                 if (anim[x] == null) continue;
                 anim[x].delta = old_values[x];
             }
-            FindObjectOfType<Main>().dontUseHistory = true;
-            FindObjectOfType<Main>().AnimationsEditorObjectSelected(FindObjectOfType<Main>().currentlyEditingObject);
+            FindObjectOfType<Main>().rewinded_this_frame = 5;
+            if (selectobj)
+            {
+                FindObjectOfType<Main>().dontUseHistory = true;
+                FindObjectOfType<Main>().AnimationsEditorObjectSelected(FindObjectOfType<Main>().currentlyEditingObject);
+            }
         }
         
         public override string ToString()
@@ -842,11 +881,27 @@ public class Main : MonoBehaviour
 
     public class PasteValues : ChangeDeltaC
     {
-        public PasteValues(string _objname, NISLoader.Animation[] _anim, float[][][] _old_values) : base(_objname, _anim, _old_values) { }
+        public PasteValues(string _objname, NISLoader.Animation[] _anim, float[][][] _old_values) : base(_objname, _anim, _old_values)
+        {
+            selectobj = false;
+        }
         
         public override string ToString()
         {
-            return "edit values";
+            return "edit " + objname + " values";
+        }
+    }
+    
+    public class InterpolateAll : ChangeDeltaC
+    {
+        public InterpolateAll(string _objname, NISLoader.Animation[] _anim, float[][][] _old_values) : base(_objname, _anim, _old_values)
+        {
+            selectobj = false;
+        }
+        
+        public override string ToString()
+        {
+            return "interpolate " + objname;
         }
     }
 
@@ -951,6 +1006,7 @@ public class Main : MonoBehaviour
     private float[][] old_delta;
     private NISLoader.Animation savedanim;
     private float old_ttt = -1;
+    private int animtabindex;
 
     void Update()
     {
@@ -984,15 +1040,13 @@ public class Main : MonoBehaviour
             case 2:
                 if (playing)
                     playing = false;
-                if (Input.GetKeyDown(KeyCode.Q))
-                    interpolation_start = timeline;
                 gizmo.YAllowed = !forceY;
                 timeline = Mathf.Round(timeinsec * 15f) / 15f / totalLength;
                 PreviewTimeline[5].value = Mathf.Round(timeinsec * 15f);
                 if (old_ttt != PreviewTimeline[5].value)
                     dontUseHistory = true;
                 old_ttt = PreviewTimeline[5].value;
-                PreviewTimeline[6].value = interpolation_start * (Mathf.Round(totalLength * 15f) / PreviewTimeline[5].maxValue);
+                PreviewTimeline[6].value = interpolation_start;
                 CoordText.text = editorCameraMovement.target.position.x.ToString("0.00", CultureInfo.InvariantCulture) + "," + editorCameraMovement.target.position.z.ToString("0.00", CultureInfo.InvariantCulture) + "," + editorCameraMovement.target.position.y.ToString("0.00", CultureInfo.InvariantCulture);
                 foreach (InputField f in RootValues)
                     f.interactable = !gizmo.isTransforming;
@@ -1068,13 +1122,56 @@ public class Main : MonoBehaviour
                 {
                     if (Input.GetKey(KeyCode.LeftControl))
                     {
-                        if (Input.GetKeyDown(KeyCode.Z))
+                        if (Input.GetKeyDown(KeyCode.Q))
+                            interpolation_start = animtabindex;
+                        else if (Input.GetKeyDown(KeyCode.Z))
                         {
                             UndoNIS();
                         }
                         else if (Input.GetKeyDown(KeyCode.Y))
                         {
                             RedoNIS();
+                        }
+                        else if (Input.GetKeyDown(KeyCode.I))
+                        {
+                            float[][][] old_delta = new float[3][][];
+                            old_delta[0] = new float[EditingAnimation_t.subAnimations[0].delta.Length][];
+                            if (EditingAnimation_t != null)
+                            {
+                                for (int i = 0; i < EditingAnimation_t.subAnimations[0].delta.Length; i++)
+                                {
+                                    old_delta[0][i] = new float[EditingAnimation_t.subAnimations[0].delta[i].Length];
+                                    for (int j = 0; j < EditingAnimation_t.subAnimations[0].delta[i].Length; j++)
+                                        old_delta[0][i][j] = EditingAnimation_t.subAnimations[0].delta[i][j];
+                                }
+                            }
+                            if (EditingAnimation_q != null)
+                            {
+                                old_delta[1] = new float[EditingAnimation_q.subAnimations[0].delta.Length][];
+                                for (int i = 0; i < EditingAnimation_q.subAnimations[0].delta.Length; i++)
+                                {
+                                    old_delta[1][i] = new float[EditingAnimation_q.subAnimations[0].delta[i].Length];
+                                    for (int j = 0; j < EditingAnimation_q.subAnimations[0].delta[i].Length; j++)
+                                        old_delta[1][i][j] = EditingAnimation_q.subAnimations[0].delta[i][j];
+                                }
+                            }
+                            if (EditingAnimation_s != null)
+                            {
+                                old_delta[2] = new float[EditingAnimation_s.subAnimations[0].delta.Length][];
+                                for (int i = 0; i < EditingAnimation_s.subAnimations[0].delta.Length; i++)
+                                {
+                                    old_delta[2][i] = new float[EditingAnimation_s.subAnimations[0].delta[i].Length];
+                                    for (int j = 0; j < EditingAnimation_s.subAnimations[0].delta[i].Length; j++)
+                                        old_delta[2][i][j] = EditingAnimation_s.subAnimations[0].delta[i][j];
+                                }
+                            }
+                            dontUseHistory = true;
+                            AnimationAction(2);
+                            AnimationAction(3);
+                            AnimationAction(4);
+                            dontUseHistory = false;
+                            AddToHistoryNIS(new InterpolateAll(currentlyEditingObject, new [] { EditingAnimation_t != null ? EditingAnimation_t.subAnimations[0] : null, EditingAnimation_q != null ? EditingAnimation_q.subAnimations[0] : null, EditingAnimation_s != null ? EditingAnimation_s.subAnimations[0] : null }, old_delta));
+                            Debug.Log("Interpolated successfully");
                         }
                         else if (Input.GetKey(KeyCode.LeftShift))
                         {
@@ -1085,6 +1182,18 @@ public class Main : MonoBehaviour
                             else if (Input.GetKeyDown(KeyCode.V))
                             {
                                 AnimationAction(6);
+                            }
+                            else if (Input.GetKeyDown(KeyCode.P))
+                            {
+                                AnimationAction(2);
+                            }
+                            else if (Input.GetKeyDown(KeyCode.R))
+                            {
+                                AnimationAction(3);
+                            }
+                            else if (Input.GetKeyDown(KeyCode.S))
+                            {
+                                AnimationAction(4);
                             }
                         }
                     }
@@ -1099,15 +1208,15 @@ public class Main : MonoBehaviour
                     }
                     (float[], float[], float, bool) eval_t, eval_q, eval_s;
                     if (EditingAnimation_t != null)
-                        eval_t = NISLoader.EvaluateAnim(EditingAnimation_t, timeinsec);
+                        eval_t = NISLoader.EvaluateAnimAbs(EditingAnimation_t, animtabindex);
                     else
                         eval_t = (null, null, 0f, false);
                     if (EditingAnimation_q != null)
-                        eval_q = NISLoader.EvaluateAnim(EditingAnimation_q, timeinsec);
+                        eval_q = NISLoader.EvaluateAnimAbs(EditingAnimation_q, animtabindex);
                     else
                         eval_q = (null, null, 0f, false);
                     if (EditingAnimation_s != null)
-                        eval_s = NISLoader.EvaluateAnim(EditingAnimation_s, timeinsec);
+                        eval_s = NISLoader.EvaluateAnimAbs(EditingAnimation_s, animtabindex);
                     else
                         eval_s = (null, null, 0f, false);
                     if (RootSubEdit.activeSelf)
@@ -1347,17 +1456,36 @@ public class Main : MonoBehaviour
             {
                 if (playing)
                     playing = false;
-                timeline -= 1f / totalLength / 15f;
-                timeline = Mathf.Round(timeline * totalLength * 15f) / 15f / totalLength;
-                timeline = Mathf.Clamp(timeline, timeline = TimelineLock && cameratrack.Count > 0 ? cameratrack[curcam].Item2[cursegment].Time + 0.001f : 0f, TimelineLock && cameratrack.Count > 0 && cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time - 0.001f : 1f);
+                if (tabnum != 2)
+                {
+                    timeline -= 1f / totalLength / 15f;
+                    timeline = Mathf.Round(timeline * totalLength * 15f) / 15f / totalLength;
+                    timeline = Mathf.Clamp(timeline, TimelineLock && cameratrack.Count > 0 ? cameratrack[curcam].Item2[cursegment].Time + 0.001f : 0f, TimelineLock && cameratrack.Count > 0 && cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time - 0.001f : 1f);
+                }
+                else
+                {
+                    if (animtabindex > 0)
+                        animtabindex -= 1;
+                    timeline = animtabindex / 15f / totalLength;
+                }
             }
             else if (Input.GetKeyDown(KeyCode.Period))
             {
                 if (playing)
                     playing = false;
-                timeline += 1f / totalLength / 15f;
-                timeline = Mathf.Round(timeline * totalLength * 15f) / 15f / totalLength;
-                timeline = Mathf.Clamp(timeline, timeline = TimelineLock && cameratrack.Count > 0 ? cameratrack[curcam].Item2[cursegment].Time + 0.001f : 0f, TimelineLock && cameratrack.Count > 0 && cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time - 0.001f : 1f);
+                if (tabnum != 2)
+                {
+                    timeline += 1f / totalLength / 15f;
+                    timeline = Mathf.Round(timeline * totalLength * 15f) / 15f / totalLength;
+                    if (tabnum != 2)
+                        timeline = Mathf.Clamp(timeline, TimelineLock && cameratrack.Count > 0 ? cameratrack[curcam].Item2[cursegment].Time + 0.001f : 0f, TimelineLock && cameratrack.Count > 0 && cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time - 0.001f : 1f);
+                }
+                else
+                {
+                    if (animtabindex < PreviewTimeline[5].maxValue)
+                        animtabindex += 1;
+                    timeline = animtabindex / 15f / totalLength;
+                }
             }
         }
 
@@ -1416,18 +1544,13 @@ public class Main : MonoBehaviour
             timeinsec = timeline * totalLength;
             foreach (NISLoader.Animation anim in anims)
             {
-                NISLoader.ApplyCarMovement(ObjectsOnScene, anim, timeinsec, forceY);
+                NISLoader.ApplyCarMovement(ObjectsOnScene, anim, tabnum == 2 ? animtabindex : timeinsec, forceY, tabnum == 2);
             }
             for (int sk = 0; sk < skeletons.Count; sk++)
             {
                 try {
-                    NISLoader.ApplyBoneAnimation(skeletons[sk].bones, skeletonAnims[skeletons[sk].animationName], timeinsec);
+                    NISLoader.ApplyBoneAnimation(skeletons[sk].bones, skeletonAnims[skeletons[sk].animationName], tabnum == 2 ? animtabindex : timeinsec, tabnum == 2);
                 } catch {}
-                /*if (skeletonAnims[skeletons[sk].animationName].subAnimations[1].type == NISLoader.AnimType.ANIM_DELTAF3)
-                {
-                    (float[], float[], float, bool) eval = NISLoader.EvaluateAnim(skeletonAnims[skeletons[sk].animationName].subAnimations[1], 0f);
-                    ObjectsOnScene[skeletonAnims[skeletons[sk].animationName].GetObjectName()].position = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
-                }*/
             }
         }
 
@@ -1566,6 +1689,37 @@ public class Main : MonoBehaviour
         } else
             HelpText.text = "Select your game directory to begin.";
     }
+    
+    static void printAllKLength(string set, int k, uint hash, ref string result, ref bool found)
+    { 
+        int n = set.Length;  
+        printAllKLengthRec(set, "", n, k, hash, ref result, ref found);
+    } 
+    
+    static void printAllKLengthRec(string set, string prefix, int n, int k, uint hash, ref string result, ref bool found)
+    {
+        if (k == 0)  
+        {
+            if (hash == NISLoader.BinHash(prefix))
+            {
+                found = true;
+                result = prefix;
+            }
+            return;
+        }
+        for (int i = 0; i < n; ++i) 
+        {
+            string newPrefix = prefix + set[i];
+            printAllKLengthRec(set, newPrefix, n, k - 1, hash, ref result, ref found);
+            if (found)
+                return;
+        } 
+    }
+
+    private static string[] extraCamBanks =
+    {
+        "Cinematics"
+    };
 
     public void UpdateNisList()
     {
@@ -1585,6 +1739,9 @@ public class Main : MonoBehaviour
                     knownNames.Add(NISLoader.BinHash(nisname), nisname);
                 }
             }
+            Dictionary<uint, string> extraNames = new Dictionary<uint, string>();
+            foreach (string bank in extraCamBanks)
+                extraNames.Add(NISLoader.BinHash(bank), bank);
             byte[] f = null;
             string path = "/GLOBAL/InGameB.lzc";
             if (File.Exists(GameDirectory + path))
@@ -1609,7 +1766,7 @@ public class Main : MonoBehaviour
                         while (i % 4 != 0)
                             i--;
                         entry = Instantiate(NisListPrefab, NisList);
-                        string nnn = knownNames.ContainsKey(NISHash) ? knownNames[NISHash] : "0x" + NISHash.ToString("X8");
+                        string nnn = knownNames.ContainsKey(NISHash) ? knownNames[NISHash] : extraNames.ContainsKey(NISHash) ? extraNames[NISHash] : "0x" + NISHash.ToString("X8");
                         entry.transform.GetChild(1).GetComponent<Text>().text = nnn;
                         entry.GetComponent<Toggle>().group = group;
                         if (knownNames.ContainsKey(NISHash))
@@ -2062,6 +2219,9 @@ public class Main : MonoBehaviour
             }
         }
         PreviewTimeline[5].maxValue = max;
+        PreviewTimeline[6].maxValue = max;
+        interpolation_start = (int)Mathf.Clamp(interpolation_start, 0, max);
+        animtabindex = (int)Mathf.Clamp(animtabindex, 0, max);
         AnimationsEditorSubObjectSelected(0);
     }
 
@@ -2138,7 +2298,7 @@ public class Main : MonoBehaviour
     public void RootValuesChanged()
     {
         if (blockupdcall) return;
-        int pos = (int)Mathf.Floor(timeinsec * 15f);
+        int pos = animtabindex;
         NISLoader.Animation an_t = EditingAnimation_t;
         NISLoader.Animation an_q = EditingAnimation_q;
         NISLoader.Animation an_s = EditingAnimation_s;
@@ -2169,7 +2329,7 @@ public class Main : MonoBehaviour
                 {
                     old = an_t.delta[pos];
                     an_t.delta[pos] = new [] { float.Parse(RootValues[0].text, CultureInfo.InvariantCulture), float.Parse(RootValues[1].text, CultureInfo.InvariantCulture), float.Parse(RootValues[2].text, CultureInfo.InvariantCulture) };
-                    if (old[0] != an_t.delta[pos][0] || old[1] != an_t.delta[pos][1] || old[2] != an_t.delta[pos][2])
+                    if (old[0].ToString(CultureInfo.InvariantCulture) != RootValues[0].text || old[1].ToString(CultureInfo.InvariantCulture) != RootValues[1].text || old[2].ToString(CultureInfo.InvariantCulture) != RootValues[2].text)
                         changed = true;
                 } catch {}
                 if (changed)
@@ -2196,9 +2356,10 @@ public class Main : MonoBehaviour
                 try
                 {
                     old = an_q.delta[pos];
+                    Vector3 ollddd = new Quaternion(old[0], old[1], old[2], old[3]).eulerAngles;
                     Quaternion quat = Quaternion.Euler(float.Parse(RootValues[3].text, CultureInfo.InvariantCulture), float.Parse(RootValues[4].text, CultureInfo.InvariantCulture), float.Parse(RootValues[5].text, CultureInfo.InvariantCulture));
                     an_q.delta[pos] = new [] { quat.x, quat.y, quat.z, quat.w };
-                    if (old[0] != an_q.delta[pos][0] || old[1] != an_q.delta[pos][1] || old[2] != an_q.delta[pos][2] || old[3] != an_q.delta[pos][3])
+                    if (ollddd.x.ToString(CultureInfo.InvariantCulture) != RootValues[3].text || ollddd.y.ToString(CultureInfo.InvariantCulture) != RootValues[4].text || ollddd.z.ToString(CultureInfo.InvariantCulture) != RootValues[5].text)
                         changed = true;
                 } catch {}
                 if (changed)
@@ -2226,7 +2387,7 @@ public class Main : MonoBehaviour
                 {
                     old = an_s.delta[pos];
                     an_s.delta[pos] = new [] { float.Parse(RootValues[6].text, CultureInfo.InvariantCulture), float.Parse(RootValues[7].text, CultureInfo.InvariantCulture), float.Parse(RootValues[8].text, CultureInfo.InvariantCulture) };
-                    if (old[0] != an_s.delta[pos][0] || old[1] != an_s.delta[pos][1] || old[2] != an_s.delta[pos][2])
+                    if (old[0].ToString(CultureInfo.InvariantCulture) != RootValues[6].text || old[1].ToString(CultureInfo.InvariantCulture) != RootValues[7].text || old[2].ToString(CultureInfo.InvariantCulture) != RootValues[8].text)
                         changed = true;
                 } catch {}
                 if (changed)
@@ -2243,7 +2404,7 @@ public class Main : MonoBehaviour
 
     public void BoneValuesChanged()
     {
-        int pos = (int)Mathf.Floor(timeinsec * 15f);
+        int pos = animtabindex;
         NISLoader.Animation an_s = EditingAnimation_s;
         if (BoneSubEdit.activeSelf)
         {
@@ -2294,11 +2455,11 @@ public class Main : MonoBehaviour
                 // todo export replay
                 break;*/
             case 2:
-                interpolation_start = timeline;
+                interpolation_start = animtabindex;
                 break;
             case 3:
-                pos1 = (int)Mathf.Floor(timeinsec * 15f);
-                pos2 = (int)Mathf.Floor(interpolation_start * totalLength * 15f);
+                pos1 = animtabindex;
+                pos2 = interpolation_start;
                 if (pos1 > pos2)
                 {
                     int temp = pos1;
@@ -2330,7 +2491,8 @@ public class Main : MonoBehaviour
                         }
                         AddToHistoryNIS(new Interpolate(currentlyEditingObject, an_t, old_delta));
                     }
-                    Debug.Log("Interpolated position successfully");
+                    if (!dontUseHistory)
+                        Debug.Log("Interpolated position successfully");
                 } else if (BoneSubEdit.activeSelf)
                 {
                     Debug.Log("Bone interpolation is not implemented yet");
@@ -2338,8 +2500,8 @@ public class Main : MonoBehaviour
                 }
                 break;
             case 4:
-                pos1 = (int)Mathf.Floor(timeinsec * 15f);
-                pos2 = (int)Mathf.Floor(interpolation_start * totalLength * 15f);
+                pos1 = animtabindex;
+                pos2 = interpolation_start;
                 if (pos1 > pos2)
                 {
                     int temp = pos1;
@@ -2371,7 +2533,8 @@ public class Main : MonoBehaviour
                         }
                         AddToHistoryNIS(new Interpolate(currentlyEditingObject, an_q, old_delta));
                     }
-                    Debug.Log("Interpolated rotation successfully");
+                    if (!dontUseHistory)
+                        Debug.Log("Interpolated rotation successfully");
                 } else if (BoneSubEdit.activeSelf)
                 {
                     Debug.Log("Bone interpolation is not implemented yet");
@@ -2379,8 +2542,8 @@ public class Main : MonoBehaviour
                 }
                 break;
             case 5:
-                pos1 = (int)Mathf.Floor(timeinsec * 15f);
-                pos2 = (int)Mathf.Floor(interpolation_start * totalLength * 15f);
+                pos1 = animtabindex;
+                pos2 = interpolation_start;
                 if (pos1 > pos2)
                 {
                     int temp = pos1;
@@ -2412,7 +2575,8 @@ public class Main : MonoBehaviour
                         }
                         AddToHistoryNIS(new Interpolate(currentlyEditingObject, an_s, old_delta));
                     }
-                    Debug.Log("Interpolated scale successfully");
+                    if (!dontUseHistory)
+                        Debug.Log("Interpolated scale successfully");
                 } else if (BoneSubEdit.activeSelf)
                 {
                     Debug.Log("Bone interpolation is not implemented yet");
@@ -3157,6 +3321,7 @@ public class Main : MonoBehaviour
     public void TimelineRewindedAnim(float t)
     {
         if (tabnum != 2) return;
+        animtabindex = (int)Mathf.Round(t);
         t = t / 15f / totalLength;
         TimelineRewinded(t);
         rewinded_this_frame = 3;
