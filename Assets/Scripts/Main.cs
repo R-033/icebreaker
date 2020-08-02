@@ -2973,7 +2973,7 @@ public class Main : MonoBehaviour
                 
                 f = f_orig.ToList();
 
-                if (NISLoader.DescriptionOffset != 0)
+                /*if (NISLoader.DescriptionOffset != 0)
                 {
                     int desclength = NISLoader.SceneDescription.Length + 1;
                     while (desclength % 4 != 0)
@@ -2989,7 +2989,7 @@ public class Main : MonoBehaviour
                     } while (bb.Count % 4 != 0);
 
                     f.InsertRange(NISLoader.DescriptionOffset, bb);
-                }
+                }*/
 
                 f.RemoveRange(ELFChunkStart + AnimationBank_Offset, 4);
                 f.InsertRange(ELFChunkStart + AnimationBank_Offset, BitConverter.GetBytes((uint)AnimationBankOffset));
