@@ -1371,6 +1371,7 @@ public class NISLoader : MonoBehaviour
 		List<(CameraTrackHeader, CameraTrackEntry[])> output = new List<(CameraTrackHeader, CameraTrackEntry[])>();
 		int _offset = 0;
         int size = 0;
+        SizeOffset = 0;
 		try
 		{
 			for (int i = 0; i < f.Length; i += 4)
@@ -1380,6 +1381,24 @@ public class NISLoader : MonoBehaviour
                     i += 4;
                     if (!fullpath)
                         SizeOffset = i;
+                }
+                if (f[i] == 0x01 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x80)
+                {
+	                i += 4;
+	                if (!fullpath)
+		                SizeOffset = i;
+                }
+                if (f[i] == 0x02 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x80)
+                {
+	                i += 4;
+	                if (!fullpath)
+		                SizeOffset = i;
+                }
+                if (f[i] == 0x03 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x80)
+                {
+	                i += 4;
+	                if (!fullpath)
+		                SizeOffset = i;
                 }
                 if (f[i] == 0x10 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x00)
 				{
@@ -1422,6 +1441,11 @@ public class NISLoader : MonoBehaviour
 		catch (Exception e)
 		{
 			Debug.LogError(e);
+		}
+		if (output.Count == 0)
+		{
+			_offset = 0;
+			SizeOffset = 0;
 		}
 		return (_offset, output);
 	}

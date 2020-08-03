@@ -237,7 +237,7 @@ public class Main : MonoBehaviour
     }
 
     private float timeinsec;
-    private bool forceY;
+    private bool forceY = true;
 
     public void UpdateForceY(bool enable)
     {
@@ -1752,10 +1752,31 @@ public class Main : MonoBehaviour
             
             ToggleGroup group = NisList.GetComponent<ToggleGroup>();
             GameObject entry;
+            int _group = -1;
             if (f != null)
             {
                 for (int i = 0; i < f.Length; i += 4)
                 {
+                    if (f[i] == 0x00 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x80)
+                    {
+                        i += 4;
+                        _group = 0;
+                    }
+                    if (f[i] == 0x01 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x80)
+                    {
+                        i += 4;
+                        _group = 1;
+                    }
+                    if (f[i] == 0x02 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x80)
+                    {
+                        i += 4;
+                        _group = 2;
+                    }
+                    if (f[i] == 0x03 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x80)
+                    {
+                        i += 4;
+                        _group = 3;
+                    }
                     if (f[i] == 0x10 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x00)
                     {
                         i += 4;
@@ -1767,7 +1788,7 @@ public class Main : MonoBehaviour
                             i--;
                         entry = Instantiate(NisListPrefab, NisList);
                         string nnn = knownNames.ContainsKey(NISHash) ? knownNames[NISHash] : extraNames.ContainsKey(NISHash) ? extraNames[NISHash] : "0x" + NISHash.ToString("X8");
-                        entry.transform.GetChild(1).GetComponent<Text>().text = nnn;
+                        entry.transform.GetChild(1).GetComponent<Text>().text = "[" + _group + "] " + nnn;
                         entry.GetComponent<Toggle>().group = group;
                         if (knownNames.ContainsKey(NISHash))
                             knownNames.Remove(NISHash);
@@ -1986,7 +2007,8 @@ public class Main : MonoBehaviour
         miscoffsets.Clear();
         Toggle t = NisList.GetComponent<ToggleGroup>().ActiveToggles().ToArray()[0];
         NISLoader.SceneInfo = new NISLoader.NisScene();
-        nisname = t.transform.GetChild(1).GetComponent<Text>().text;
+        string rawn = t.transform.GetChild(1).GetComponent<Text>().text;
+        nisname = rawn.Contains("]") ? rawn.Substring(rawn.IndexOf(']') + 2) : rawn;
         bool usehash = false;
         uint hash = 0;
         if (nisname.StartsWith("0x"))
@@ -3117,7 +3139,8 @@ public class Main : MonoBehaviour
                     f_orig = NISLoader.DecompressJZC(f_orig);
                     f = f_orig.ToList();
                     List<byte> chunk = new List<byte>();
-                    chunk.AddRange(BitConverter.GetBytes(NISLoader.BinHash(nisname)));
+                    uint hash = nisname.StartsWith("0x") ? Convert.ToUInt32(nisname.Substring(2), 16) : NISLoader.BinHash(nisname);
+                    chunk.AddRange(BitConverter.GetBytes(hash));
                     chunk.AddRange(BitConverter.GetBytes(cameratrack.Count));
                     for (int i = 0; i < cameratrack.Count; i++)
                     {
@@ -3128,14 +3151,49 @@ public class Main : MonoBehaviour
                             chunk.AddRange(CoordDebug.RawSerialize(cameratrack[i].Item2[j]));
                     }
 
-                    oldsize = BitConverter.ToInt32(f_orig, cameratrack_offset + 4);
-                    f.RemoveRange(NISLoader.SizeOffset, 4);
-                    f.InsertRange(NISLoader.SizeOffset, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, NISLoader.SizeOffset) + (chunk.Count - oldsize)));
-                    f.RemoveRange(cameratrack_offset + 4, 4);
-                    f.InsertRange(cameratrack_offset + 4, BitConverter.GetBytes(chunk.Count));
-                    f.RemoveRange(cameratrack_offset + 8, oldsize);
-                    f.InsertRange(cameratrack_offset + 8, chunk);
+                    bool updlistpls = false;
+
+                    if (NISLoader.SizeOffset == 0)
+                    {
+                        updlistpls = true;
+                        for (int i = 0; i < f_orig.Length; i += 4)
+                        {
+                            if (f[i] == 0x00 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x80)
+                            {
+                                i += 4;
+                                NISLoader.SizeOffset = i;
+                                break;
+                            }
+                        }
+                        if (NISLoader.SizeOffset == 0)
+                            throw new Exception("Can't find parent bank for camera, this may be very bad idea to save...");
+                    }
+
+                    if (cameratrack_offset == 0)
+                    {
+                        int ccc = BitConverter.ToInt32(f_orig, NISLoader.SizeOffset);
+                        f.RemoveRange(NISLoader.SizeOffset, 4);
+                        f.InsertRange(NISLoader.SizeOffset, BitConverter.GetBytes(ccc + chunk.Count + 8));
+                        int offset = NISLoader.SizeOffset + 4 + ccc;
+                        f.InsertRange(offset, new byte[] { 0x10, 0xB2, 0x03, 0x00 });
+                        offset += 4;
+                        f.InsertRange(offset, BitConverter.GetBytes(chunk.Count));
+                        offset += 4;
+                        f.InsertRange(offset, chunk);
+                    }
+                    else
+                    {
+                        oldsize = BitConverter.ToInt32(f_orig, cameratrack_offset + 4);
+                        f.RemoveRange(NISLoader.SizeOffset, 4);
+                        f.InsertRange(NISLoader.SizeOffset, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, NISLoader.SizeOffset) + (chunk.Count - oldsize)));
+                        f.RemoveRange(cameratrack_offset + 4, 4);
+                        f.InsertRange(cameratrack_offset + 4, BitConverter.GetBytes(chunk.Count));
+                        f.RemoveRange(cameratrack_offset + 8, oldsize);
+                        f.InsertRange(cameratrack_offset + 8, chunk);
+                    }
                     File.WriteAllBytes(GameDirectory + path, f.ToArray());
+                    if (updlistpls)
+                        UpdateNisList();
                 }
                 catch (Exception e)
                 {
