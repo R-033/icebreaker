@@ -32,7 +32,9 @@ public class Main : MonoBehaviour
     public GameObject NisListPrefab;
     public GameObject ObjectListPrefab;
     public RectTransform Objectlist;
+    public RectTransform Objectlist2;
     public ToggleGroup ObjectListGroup;
+    public ToggleGroup ObjectListGroup2;
     public RectTransform SubObjectlist;
     public ToggleGroup SubObjectListGroup;
     public Toggle PreviewToggle;
@@ -918,6 +920,7 @@ public class Main : MonoBehaviour
         while (historyAnimations.Count > currentEntryAnimations)
             historyAnimations.RemoveAt(historyAnimations.Count - 1);
         historyAnimations.Add(entry);
+        Debug.Log("Add " + entry);
         if (historyAnimations.Count > 64)
         {
             historyAnimations.RemoveAt(0);
@@ -987,7 +990,7 @@ public class Main : MonoBehaviour
             RedoCam();
     }
 
-    private bool helpshown;
+    public static bool helpshown;
 
     public void HelpButton(bool enable)
     {
@@ -1619,7 +1622,7 @@ public class Main : MonoBehaviour
                 switch (cameratrack[curcam].Item2[cursegment].attributes[4])
                 {
                     case 0:
-                        Transform player_car = ObjectsOnScene.Count > 0 ? ObjectsOnScene["Car1"] : SceneRoot;
+                        Transform player_car = ObjectsOnScene.ContainsKey("Car1") ? ObjectsOnScene["Car1"] : SceneRoot;
                         eyepos = Quaternion.Euler(0f, -(-90f + player_car.eulerAngles.y), 0f) * (SceneCamera.transform.position - player_car.position);
                         lookpos = Quaternion.Euler(0f, -(-90f + player_car.eulerAngles.y), 0f) * (FocusSphere.transform.position - player_car.position);
                         break;
@@ -1650,7 +1653,7 @@ public class Main : MonoBehaviour
             {
                 if (timeline >= camerasplines[i].start && timeline <= camerasplines[i].end)
                 {
-                    NISLoader.ApplyCameraMovement(camerasplines[i], timeline, timeinsec, ObjectsOnScene.Count > 0 ? ObjectsOnScene["Car1"] : SceneRoot, SceneCamera, FocusSphere, RealtimeCameraEditActive);
+                    NISLoader.ApplyCameraMovement(camerasplines[i], timeline, timeinsec, ObjectsOnScene.ContainsKey("Car1") ? ObjectsOnScene["Car1"] : SceneRoot, SceneCamera, FocusSphere, RealtimeCameraEditActive);
                     break;
                 }
             }
@@ -1999,6 +2002,8 @@ public class Main : MonoBehaviour
         }
     }
 
+    int elftablelength;
+
     public void OpenNIS()
     {
         ClearHistory();
@@ -2016,6 +2021,7 @@ public class Main : MonoBehaviour
             usehash = true;
             hash = Convert.ToUInt32(nisname.Substring(2), 16);
         }
+        elftablelength = 0;
         if (usehash)
         {
             anims = new List<NISLoader.Animation>();
@@ -2030,6 +2036,30 @@ public class Main : MonoBehaviour
         {
             LoggingMode = 1;
             (anims, skeletons) = NISLoader.LoadAnimations(nisname, GameDirectory);
+
+            elftablelength += 8;
+            elftablelength += 8;
+            elftablelength += 8;
+            for (int i = anims.Count - 1; i >= 0; i--)
+            {
+                elftablelength += 8;
+            }
+            for (int i = anims.Count - 1; i >= 0; i--)
+            {
+                elftablelength += 8;
+            }
+            for (int i = anims.Count - 1; i >= 0; i--)
+            {
+                elftablelength += 8;
+                elftablelength += 8;
+                for (int childNum = anims[i].subAnimations.Count - 1; childNum >= 0; childNum--)
+                {
+                    elftablelength += 8;
+                }
+            }
+            elftablelength += 4;
+            elftablelength += 4;
+
             LoggingMode = 0;
             skeletonAnims = new Dictionary<string, NISLoader.Animation>();
             foreach (NISLoader.Animation anim in anims)
@@ -2061,6 +2091,32 @@ public class Main : MonoBehaviour
             NISProps[8].text = (int) Mathf.Floor(calcdur / 60f) + ":" + (calcdur % 60f).ToString("0.00").PadLeft(5, '0');
             NISProps[9].text = NISLoader.toollibver;
         }
+        UpdateObjectList();
+        editorCameraMovement.target.position = Vector3.zero;
+        foreach (GameObject obj in HiddenElements)
+            obj.SetActive(true);
+        PreviewToggle.isOn = true;
+        activated = true;
+        CameraTrackSelection.options = new List<Dropdown.OptionData>();
+        Dropdown.OptionData opt;
+        foreach (var cam in cameratrack)
+        {
+            opt = new Dropdown.OptionData();
+            opt.text = cam.Item1.TrackName;
+            CameraTrackSelection.options.Add(opt);
+        }
+        CameraTrackSelection.value = 0;
+        editorTimelineMin = 0f;
+        editorTimelineMax = 1f;
+        updlimit = false;
+        ChangeCameraTrack(0);
+        TimelineLock = false;
+        TimelineLockToggle.isOn = false;
+        ImpExpButton.interactable = true;
+    }
+
+    void UpdateObjectList()
+    {
         foreach (string car in ObjectsOnScene.Keys)
             Destroy(ObjectsOnScene[car].gameObject);
         ObjectsOnScene.Clear();
@@ -2089,14 +2145,19 @@ public class Main : MonoBehaviour
                 }
                 else
                 {
-                    if (animobj.StartsWith("Car")) {
+                    if (animobj.StartsWith("Car"))
+                    {
                         if (animobj == "Car1")
                             Instantiate(CarPrefabPlayer, target);
                         else
                             Instantiate(CarPrefabOpponent, target);
-                    } else if (animobj.StartsWith("Cop")) {
+                    }
+                    else if (animobj.StartsWith("Cop"))
+                    {
                         Instantiate(CarPrefabCop, target);
-                    } else {
+                    }
+                    else
+                    {
                         // todo
                     }
                 }
@@ -2123,6 +2184,12 @@ public class Main : MonoBehaviour
                 continue;
             Destroy(child.gameObject);
         }
+        foreach (Transform child in Objectlist2)
+        {
+            if (child.name == "Top" || child.name == "Bottom")
+                continue;
+            Destroy(child.gameObject);
+        }
         GameObject entry;
         bool firstpass = false;
         foreach (string n in alreadyDid)
@@ -2139,31 +2206,261 @@ public class Main : MonoBehaviour
             }
             entry.GetComponent<Toggle>().onValueChanged.AddListener(x => AnimationsEditorObjectSelected(nnn));
         }
-        /*entry = Instantiate(ObjectListPrefab, Objectlist);
+        firstpass = false;
+        foreach (NISLoader.Animation anim in anims)
+        {
+            string nnn = anim.name;
+            entry = Instantiate(NisListPrefab, Objectlist2);
+            entry.transform.GetChild(1).GetComponent<Text>().text = nnn;
+            entry.GetComponent<Toggle>().group = ObjectListGroup2;
+            if (!firstpass)
+            {
+                firstpass = true;
+                entry.GetComponent<Toggle>().isOn = true;
+                ObjectNameField.text = nnn;
+            }
+            entry.GetComponent<Toggle>().onValueChanged.AddListener(x => {
+                ObjectNameField.text = nnn;
+            });
+        }
+        entry = Instantiate(ObjectListPrefab, Objectlist);
         entry.transform.GetChild(1).GetComponent<Text>().text = "Edit list...";
         entry.transform.GetChild(1).GetComponent<Text>().color = new Color(1f, 1f, 1f, 0.5f);
-        entry.GetComponent<Toggle>().group = ObjectListGroup;*/
-        editorCameraMovement.target.position = Vector3.zero;
-        foreach (GameObject obj in HiddenElements)
-            obj.SetActive(true);
-        PreviewToggle.isOn = true;
-        activated = true;
-        CameraTrackSelection.options = new List<Dropdown.OptionData>();
-        foreach (var cam in cameratrack)
-        {
-            opt = new Dropdown.OptionData();
-            opt.text = cam.Item1.TrackName;
-            CameraTrackSelection.options.Add(opt);
-        }
-        CameraTrackSelection.value = 0;
-        editorTimelineMin = 0f;
-        editorTimelineMax = 1f;
-        updlimit = false;
-        ChangeCameraTrack(0);
-        TimelineLock = false;
-        TimelineLockToggle.isOn = false;
-        ImpExpButton.interactable = true;
+        entry.GetComponent<Toggle>().onValueChanged.AddListener(x => {
+            if (!x) return;
+            EditObjListMenu.SetActive(true);
+            HelpButton(true);
+            entry.GetComponent<Toggle>().isOn = false;
+        });
     }
+
+    public class RenameAnimation : HistoryEntry
+    {
+        public RenameAnimation(int _animnum, string _oldname, string _newname)
+        {
+            animnum = _animnum;
+            oldname = _oldname;
+            newname = _newname;
+        }
+
+        private int animnum;
+        private string oldname;
+        private string newname;
+
+        public override void Apply()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.anims[animnum].name = newname;
+            main.UpdateObjectList();
+        }
+
+        public override void Restore()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.anims[animnum].name = oldname;
+            main.UpdateObjectList();
+        }
+
+        public override string ToString()
+        {
+            return "rename animation";
+        }
+    }
+
+    public class CreateAnimation : HistoryEntry
+    {
+        public CreateAnimation(NISLoader.Animation _anim)
+        {
+            anim = _anim;
+        }
+
+        private NISLoader.Animation anim;
+
+        public override void Apply()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.anims.Add(anim);
+            main.UpdateObjectList();
+        }
+
+        public override void Restore()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.anims.Remove(anim);
+            main.UpdateObjectList();
+        }
+
+        public override string ToString()
+        {
+            return "create animation";
+        }
+    }
+
+    public class RemoveAnimation : HistoryEntry
+    {
+        public RemoveAnimation(int _animnum, NISLoader.Animation _anim)
+        {
+            animnum = _animnum;
+            anim = _anim;
+        }
+
+        private int animnum;
+        private NISLoader.Animation anim;
+
+        public override void Apply()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.anims.Remove(anim);
+            main.UpdateObjectList();
+        }
+
+        public override void Restore()
+        {
+            Main main = FindObjectOfType<Main>();
+            main.anims.Insert(animnum, anim);
+            main.UpdateObjectList();
+        }
+
+        public override string ToString()
+        {
+            return "remove animation";
+        }
+    }
+
+    string allowedObjLetters = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890_";
+
+    public void ApplyAnimName()
+    {
+        if (ObjectListGroup2.ActiveToggles().ToArray().Length == 0) return;
+        Toggle t = ObjectListGroup2.ActiveToggles().ToArray()[0];
+        int animnum = t.transform.GetComponent<RectTransform>().GetSiblingIndex();
+        int counter = 0;
+        foreach (char c in ObjectNameField.text)
+        {
+            if (c == '_')
+                counter++;
+            if (!allowedObjLetters.Contains(c))
+            {
+                Debug.Log("Animation name contains symbols that might break the game.");
+                return;
+            }
+        }
+        if (counter < 2 || !ObjectNameField.text.EndsWith("_t") && !ObjectNameField.text.EndsWith("_q") && !ObjectNameField.text.EndsWith("_s"))
+        {
+            Debug.Log("Incorrect name format. Please try to stick to this format: <i>(NIS name)_(Object name)_(type: t, q, s)</i>");
+            return;
+        }
+        if (anims[animnum].name == ObjectNameField.text || string.IsNullOrEmpty(ObjectNameField.text)) return;
+        foreach (NISLoader.Animation anim in anims)
+        {
+            if (anim.name == ObjectNameField.text)
+            {
+                Debug.Log("Animation with same name already exists.");
+                return;
+            }
+        }
+        AddToHistoryNIS(new RenameAnimation(animnum, anims[animnum].name, ObjectNameField.text));
+        anims[animnum].name = ObjectNameField.text;
+        UpdateObjectList();
+    }
+
+    public void CreateNewAnim()
+    {
+        if (ObjectListGroup2.ActiveToggles().ToArray().Length == 0) return;
+        int counter = 0;
+        foreach (char c in ObjectNameField.text)
+        {
+            if (c == '_')
+                counter++;
+            if (!allowedObjLetters.Contains(c))
+            {
+                Debug.Log("Animation name contains symbols that might break the game.");
+                return;
+            }
+        }
+        if (counter < 2 || !ObjectNameField.text.EndsWith("_t") && !ObjectNameField.text.EndsWith("_q") && !ObjectNameField.text.EndsWith("_s"))
+        {
+            Debug.Log("Incorrect name format. Please try to stick to this format: <i>(NIS name)_(Object name)_(type: t, q, s)</i>");
+            return;
+        }
+        if (string.IsNullOrEmpty(ObjectNameField.text)) return;
+        foreach (NISLoader.Animation anim in anims)
+        {
+            if (anim.name == ObjectNameField.text)
+            {
+                Debug.Log("Animation with same name already exists.");
+                return;
+            }
+        }
+        NISLoader.Animation newAnimParent = new NISLoader.Animation();
+        newAnimParent.name = ObjectNameField.text;
+        newAnimParent.type = NISLoader.AnimType.ANIM_COMPOUND;
+        newAnimParent.subAnimations = new List<NISLoader.Animation>();
+        newAnimParent.subAnimations.Add(new NISLoader.Animation());
+        NISLoader.Animation newAnim = newAnimParent.subAnimations[0];
+        if (ObjectNameField.text.EndsWith("_q"))
+        {
+            newAnim.type = NISLoader.AnimType.ANIM_DELTAQUAT;
+            newAnim.numDofs = 4;
+            newAnim.quantBits = 0x10;
+            newAnim.unk1 = 16;
+        } else
+        {
+            newAnim.type = NISLoader.AnimType.ANIM_DELTALERP;
+            newAnim.numDofs = 3;
+            newAnim.quantBits = 0x10;
+            if (ObjectNameField.text.EndsWith("_t"))
+            {
+                newAnim.unk1 = 12;
+                newAnim.unk2 = 13;
+                newAnim.unk3 = 14;
+            } else
+            {
+                newAnim.unk1 = 20;
+                newAnim.unk2 = 21;
+                newAnim.unk3 = 22;
+            }
+        }
+        int deltacount = 2;
+        foreach (NISLoader.Animation anim in anims)
+            if (anim.name.StartsWith(ObjectNameField.text.Substring(0, ObjectNameField.text.Length - 1)))
+            {
+                deltacount = anim.subAnimations[0].delta.Length;
+                break;
+            }
+        newAnim.delta = new float[deltacount][];
+        for (int i = 0; i < deltacount; i++)
+        {
+            newAnim.delta[i] = new float[newAnim.numDofs];
+            if (newAnim.numDofs == 4)
+            {
+                newAnim.delta[i][0] = Quaternion.identity.x;
+                newAnim.delta[i][1] = Quaternion.identity.y;
+                newAnim.delta[i][2] = Quaternion.identity.z;
+                newAnim.delta[i][3] = Quaternion.identity.w;
+            }
+        }
+        AddToHistoryNIS(new CreateAnimation(newAnimParent));
+        anims.Add(newAnimParent);
+        UpdateObjectList();
+    }
+
+    public void RemoveAnim()
+    {
+        if (ObjectListGroup2.ActiveToggles().ToArray().Length == 0) return;
+        Toggle t = ObjectListGroup2.ActiveToggles().ToArray()[0];
+        int animnum = t.transform.GetComponent<RectTransform>().GetSiblingIndex();
+        if (anims.Count <= 1)
+        {
+            Debug.Log("Idk why you hate them so much but you can't remove all of them I'm sorry");
+            return;
+        }
+        AddToHistoryNIS(new RemoveAnimation(animnum, anims[animnum]));
+        anims.RemoveAt(animnum);
+        UpdateObjectList();
+    }
+
+    public InputField ObjectNameField;
 
     public Toggle TimelineLockToggle;
 
@@ -2171,6 +2468,7 @@ public class Main : MonoBehaviour
     private Transform currentlyEditingSubObject;
     public GameObject SubObjectlistMain;
     List<Transform> subobjs = new List<Transform>();
+    public GameObject EditObjListMenu;
 
     public void AnimationsEditorObjectSelected(string objname)
     {
@@ -2795,330 +3093,340 @@ public class Main : MonoBehaviour
         {
             case 2:
                 try {
-                List<byte> animdata = new List<byte>();
-                animdata.AddRange(new byte[] {0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0});
-                List<int> nameOffsets = new List<int>();
-                for (int i = 0; i < anims.Count; i++)
-                {
-                    nameOffsets.Add(animdata.Count);
-                    for (int ch = 0; ch < anims[i].name.Length; ch++)
+                    List<byte> animdata = new List<byte>();
+                    animdata.AddRange(new byte[] {0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0});
+                    List<int> nameOffsets = new List<int>();
+                    for (int i = 0; i < anims.Count; i++)
                     {
-                        animdata.Add(Convert.ToByte(anims[i].name[ch]));
+                        nameOffsets.Add(animdata.Count);
+                        for (int ch = 0; ch < anims[i].name.Length; ch++)
+                        {
+                            animdata.Add(Convert.ToByte(anims[i].name[ch]));
+                        }
+                        animdata.Add(0);
                     }
-                    animdata.Add(0);
-                }
-                List<int> animationCompoundOffsets = new List<int>();
-                List<int[]> animationChildOffsets = new List<int[]>();
-                List<int[]> animationChildMetaOffsets = new List<int[]>();
-                List<int> animationCompoundMetaOffsets = new List<int>();
-                for (int i = 0; i < anims.Count; i++)
-                {
-                    switch (anims[i].type)
+                    List<int> animationCompoundOffsets = new List<int>();
+                    List<int[]> animationChildOffsets = new List<int[]>();
+                    List<int[]> animationChildMetaOffsets = new List<int[]>();
+                    List<int> animationCompoundMetaOffsets = new List<int>();
+                    for (int i = 0; i < anims.Count; i++)
                     {
-                        case NISLoader.AnimType.ANIM_COMPOUND:
-                            while (animdata.Count % 16 != 0)
-                                animdata.Add(0);
-                            animationCompoundOffsets.Add(animdata.Count);
-                            animdata.AddRange(new byte[] {0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x1E, 0x30, 0x30, 0x30});
-                            animationChildOffsets.Add(new int[anims[i].subAnimations.Count]);
-                            animationChildMetaOffsets.Add(new int[anims[i].subAnimations.Count]);
-                            for (int childNum = 0; childNum < anims[i].subAnimations.Count; childNum++)
-                            {
-                                animationChildOffsets[animationChildOffsets.Count - 1][childNum] = animdata.Count;
-                                animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].numDofs));
-                                animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].quantBits));
-                                List<float[]> delta = anims[i].subAnimations[childNum].delta.ToList();
-                                delta.Add(new float[anims[i].subAnimations[childNum].numDofs]);
-                                for (int x = 0; x < anims[i].subAnimations[childNum].numDofs; x++)
-                                    delta[delta.Count - 1][x] = Mathf.LerpUnclamped(delta.Count > 2 ? delta[delta.Count - 3][x] : 0f, delta.Count > 1 ? delta[delta.Count - 2][x] : 0f, 2f);
-                                if (anims[i].subAnimations[childNum].numDofs == 4)
+                        switch (anims[i].type)
+                        {
+                            case NISLoader.AnimType.ANIM_COMPOUND:
+                                while (animdata.Count % 16 != 0)
+                                    animdata.Add(0);
+                                animationCompoundOffsets.Add(animdata.Count);
+                                animdata.AddRange(new byte[] {0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x1E, 0x30, 0x30, 0x30});
+                                animationChildOffsets.Add(new int[anims[i].subAnimations.Count]);
+                                animationChildMetaOffsets.Add(new int[anims[i].subAnimations.Count]);
+                                for (int childNum = 0; childNum < anims[i].subAnimations.Count; childNum++)
                                 {
-                                    // rotation fix?
-                                    Vector3[] deltaeuler = new Vector3[delta.Count];
-                                    for (int deltaNum = 0; deltaNum < delta.Count; deltaNum++)
-                                        deltaeuler[deltaNum] = new Quaternion(delta[deltaNum][0], delta[deltaNum][1], delta[deltaNum][2], delta[deltaNum][3]).eulerAngles;
-                                    for (int deltaNum = 1; deltaNum < delta.Count; deltaNum++)
-                                    {
-                                        float x, y, z, x_old, y_old, z_old;
-                                        x = deltaeuler[deltaNum].x;
-                                        y = deltaeuler[deltaNum].y;
-                                        z = deltaeuler[deltaNum].z;
-                                        x_old = deltaeuler[deltaNum - 1].x;
-                                        y_old = deltaeuler[deltaNum - 1].y;
-                                        z_old = deltaeuler[deltaNum - 1].z;
-
-                                        float delta_x = Mathf.DeltaAngle(x_old, x);
-                                        float delta_y = Mathf.DeltaAngle(y_old, y);
-                                        float delta_z = Mathf.DeltaAngle(z_old, z);
-
-                                        deltaeuler[deltaNum] = new Vector3(x_old + delta_x, y_old + delta_y, z_old + delta_z);
-                                    }
-                                    for (int deltaNum = 0; deltaNum < delta.Count; deltaNum++)
-                                    {
-                                        Quaternion quat = Quaternion.Euler(deltaeuler[deltaNum]);
-                                        delta[deltaNum][0] = quat.x;
-                                        delta[deltaNum][1] = quat.y;
-                                        delta[deltaNum][2] = quat.z;
-                                        delta[deltaNum][3] = quat.w;
-                                    }
-                                }
-                                double[][] header = new double[anims[i].subAnimations[childNum].numDofs][];
-                                for (int dof = 0; dof < anims[i].subAnimations[childNum].numDofs; dof++)
-                                {
-                                    double header_0 = delta[1][dof] - delta[0][dof];
-                                    for (int deltaNum = 2; deltaNum < delta.Count; deltaNum++)
-                                    {
-                                        double d = delta[deltaNum][dof] - delta[deltaNum - 1][dof];
-                                        if (d < header_0)
-                                            header_0 = d;
-                                    }
-                                    double header_1 = delta[1][dof] - delta[0][dof] - header_0;
-                                    for (int deltaNum = 2; deltaNum < delta.Count; deltaNum++)
-                                    {
-                                        double d = delta[deltaNum][dof] - delta[deltaNum - 1][dof] - header_0;
-                                        if (d > header_1)
-                                            header_1 = d;
-                                    }
-                                    switch (anims[i].subAnimations[childNum].quantBits)
-                                    {
-                                        case 8:
-                                            header_1 *= 0.003921568627450980392157; // / 0xff
-                                            break;
-                                        case 0x10:
-                                            header_1 *= 1.525902189669642175937E-5; // / 0xffff
-                                            break;
-                                    }
-                                    header[dof] = new double[3];
-                                    header[dof][0] = header_0;
-                                    header[dof][1] = header_1;
-                                    header[dof][2] = delta[0][dof];
-                                    animdata.AddRange(BitConverter.GetBytes(Convert.ToSingle(header_0)));
-                                    animdata.AddRange(BitConverter.GetBytes(Convert.ToSingle(header_1)));
-                                    animdata.AddRange(BitConverter.GetBytes(delta[0][dof]));
-                                }
-                                for (int deltaNum = 1; deltaNum < delta.Count; deltaNum++)
-                                {
+                                    animationChildOffsets[animationChildOffsets.Count - 1][childNum] = animdata.Count;
+                                    animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].numDofs));
+                                    animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].quantBits));
+                                    List<float[]> delta = anims[i].subAnimations[childNum].delta.ToList();
+                                    delta.Add(new float[anims[i].subAnimations[childNum].numDofs]);
                                     for (int x = 0; x < anims[i].subAnimations[childNum].numDofs; x++)
+                                        delta[delta.Count - 1][x] = Mathf.LerpUnclamped(delta.Count > 2 ? delta[delta.Count - 3][x] : 0f, delta.Count > 1 ? delta[delta.Count - 2][x] : 0f, 2f);
+                                    if (anims[i].subAnimations[childNum].numDofs == 4)
                                     {
-                                        double compressed_value = ((double)delta[deltaNum][x] - (double)delta[deltaNum - 1][x] - header[x][0]) / header[x][1];
-                                        if (double.IsNaN(compressed_value))
-                                            compressed_value = 0;
-                                        if (double.IsInfinity(compressed_value))
-                                            compressed_value = anims[i].subAnimations[childNum].quantBits == 8 ? 0xff : 0xffff;
-                                        if (compressed_value < 0)
-                                            compressed_value = 0;
+                                        // rotation fix?
+                                        Vector3[] deltaeuler = new Vector3[delta.Count];
+                                        for (int deltaNum = 0; deltaNum < delta.Count; deltaNum++)
+                                            deltaeuler[deltaNum] = new Quaternion(delta[deltaNum][0], delta[deltaNum][1], delta[deltaNum][2], delta[deltaNum][3]).eulerAngles;
+                                        for (int deltaNum = 1; deltaNum < delta.Count; deltaNum++)
+                                        {
+                                            float x, y, z, x_old, y_old, z_old;
+                                            x = deltaeuler[deltaNum].x;
+                                            y = deltaeuler[deltaNum].y;
+                                            z = deltaeuler[deltaNum].z;
+                                            x_old = deltaeuler[deltaNum - 1].x;
+                                            y_old = deltaeuler[deltaNum - 1].y;
+                                            z_old = deltaeuler[deltaNum - 1].z;
+
+                                            float delta_x = Mathf.DeltaAngle(x_old, x);
+                                            float delta_y = Mathf.DeltaAngle(y_old, y);
+                                            float delta_z = Mathf.DeltaAngle(z_old, z);
+
+                                            deltaeuler[deltaNum] = new Vector3(x_old + delta_x, y_old + delta_y, z_old + delta_z);
+                                        }
+                                        for (int deltaNum = 0; deltaNum < delta.Count; deltaNum++)
+                                        {
+                                            Quaternion quat = Quaternion.Euler(deltaeuler[deltaNum]);
+                                            delta[deltaNum][0] = quat.x;
+                                            delta[deltaNum][1] = quat.y;
+                                            delta[deltaNum][2] = quat.z;
+                                            delta[deltaNum][3] = quat.w;
+                                        }
+                                    }
+                                    double[][] header = new double[anims[i].subAnimations[childNum].numDofs][];
+                                    for (int dof = 0; dof < anims[i].subAnimations[childNum].numDofs; dof++)
+                                    {
+                                        double header_0 = delta[1][dof] - delta[0][dof];
+                                        for (int deltaNum = 2; deltaNum < delta.Count; deltaNum++)
+                                        {
+                                            double d = delta[deltaNum][dof] - delta[deltaNum - 1][dof];
+                                            if (d < header_0)
+                                                header_0 = d;
+                                        }
+                                        double header_1 = delta[1][dof] - delta[0][dof] - header_0;
+                                        for (int deltaNum = 2; deltaNum < delta.Count; deltaNum++)
+                                        {
+                                            double d = delta[deltaNum][dof] - delta[deltaNum - 1][dof] - header_0;
+                                            if (d > header_1)
+                                                header_1 = d;
+                                        }
                                         switch (anims[i].subAnimations[childNum].quantBits)
                                         {
                                             case 8:
-                                                if (compressed_value > 0xff)
-                                                    compressed_value = 0xff;
-                                                animdata.Add(Convert.ToByte(Math.Round(compressed_value)));
+                                                header_1 *= 0.003921568627450980392157; // / 0xff
                                                 break;
                                             case 0x10:
-                                                if (compressed_value > 0xffff)
-                                                    compressed_value = 0xffff;
-                                                animdata.AddRange(BitConverter.GetBytes(Convert.ToUInt16(Math.Round(compressed_value))));
+                                                header_1 *= 1.525902189669642175937E-5; // / 0xffff
                                                 break;
                                         }
+                                        header[dof] = new double[3];
+                                        header[dof][0] = header_0;
+                                        header[dof][1] = header_1;
+                                        header[dof][2] = delta[0][dof];
+                                        animdata.AddRange(BitConverter.GetBytes(Convert.ToSingle(header_0)));
+                                        animdata.AddRange(BitConverter.GetBytes(Convert.ToSingle(header_1)));
+                                        animdata.AddRange(BitConverter.GetBytes(delta[0][dof]));
+                                    }
+                                    for (int deltaNum = 1; deltaNum < delta.Count; deltaNum++)
+                                    {
+                                        for (int x = 0; x < anims[i].subAnimations[childNum].numDofs; x++)
+                                        {
+                                            double compressed_value = ((double)delta[deltaNum][x] - (double)delta[deltaNum - 1][x] - header[x][0]) / header[x][1];
+                                            if (double.IsNaN(compressed_value))
+                                                compressed_value = 0;
+                                            if (double.IsInfinity(compressed_value))
+                                                compressed_value = anims[i].subAnimations[childNum].quantBits == 8 ? 0xff : 0xffff;
+                                            if (compressed_value < 0)
+                                                compressed_value = 0;
+                                            switch (anims[i].subAnimations[childNum].quantBits)
+                                            {
+                                                case 8:
+                                                    if (compressed_value > 0xff)
+                                                        compressed_value = 0xff;
+                                                    animdata.Add(Convert.ToByte(Math.Round(compressed_value)));
+                                                    break;
+                                                case 0x10:
+                                                    if (compressed_value > 0xffff)
+                                                        compressed_value = 0xffff;
+                                                    animdata.AddRange(BitConverter.GetBytes(Convert.ToUInt16(Math.Round(compressed_value))));
+                                                    break;
+                                            }
+                                        }
+                                    }
+                                    while (animdata.Count % 4 != 0)
+                                        animdata.Add(0);
+                                    switch (anims[i].subAnimations[childNum].type)
+                                    {
+                                        case NISLoader.AnimType.ANIM_DELTAQUAT:
+                                            animdata.AddRange(BitConverter.GetBytes((uint)0));
+                                            animdata.AddRange(BitConverter.GetBytes((uint)0));
+                                            break;
+                                    }
+
+                                    animationChildMetaOffsets[animationChildOffsets.Count - 1][childNum] = animdata.Count;
+                                    animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].subAnimations[childNum].type));
+                                    animdata.AddRange(BitConverter.GetBytes(NISLoader.checkSum));
+                                    switch (anims[i].subAnimations[childNum].type)
+                                    {
+                                        case NISLoader.AnimType.ANIM_DELTALERP:
+                                            animdata.AddRange(BitConverter.GetBytes((uint)animationChildOffsets[animationChildOffsets.Count - 1][childNum]));
+                                            animdata.AddRange(BitConverter.GetBytes((ushort)(anims[i].subAnimations[childNum].delta.Length)));
+                                            animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].unk1)); // not sure
+                                            animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].unk2)); // not sure
+                                            animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].unk3)); // not sure
+                                            break;
+                                        case NISLoader.AnimType.ANIM_DELTAQUAT:
+                                            animdata.AddRange(BitConverter.GetBytes((uint)animationChildOffsets[animationChildOffsets.Count - 1][childNum]));
+                                            animdata.AddRange(BitConverter.GetBytes((ushort)(anims[i].subAnimations[childNum].delta.Length)));
+                                            animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].unk1)); // not sure
+                                            break;
+                                        default:
+                                            throw new NotImplementedException();
                                     }
                                 }
-                                while (animdata.Count % 4 != 0)
-                                    animdata.Add(0);
-                                switch (anims[i].subAnimations[childNum].type)
-                                {
-                                    case NISLoader.AnimType.ANIM_DELTAQUAT:
-                                        animdata.AddRange(BitConverter.GetBytes((uint)0));
-                                        animdata.AddRange(BitConverter.GetBytes((uint)0));
-                                        break;
-                                }
-
-                                animationChildMetaOffsets[animationChildOffsets.Count - 1][childNum] = animdata.Count;
-                                animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].subAnimations[childNum].type));
+                                animationCompoundMetaOffsets.Add(animdata.Count);
+                                animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].type));
                                 animdata.AddRange(BitConverter.GetBytes(NISLoader.checkSum));
-                                switch (anims[i].subAnimations[childNum].type)
+                                animdata.AddRange(BitConverter.GetBytes((uint)animationCompoundOffsets.Last()));
+                                animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].subAnimations.Count));
+                                animdata.AddRange(BitConverter.GetBytes((ushort)(anims[i].subAnimations[0].delta.Length))); // todo more counts?
+                                for (int childNum = 0; childNum < anims[i].subAnimations.Count; childNum++)
                                 {
-                                    case NISLoader.AnimType.ANIM_DELTALERP:
-                                        animdata.AddRange(BitConverter.GetBytes((uint)animationChildOffsets[animationChildOffsets.Count - 1][childNum]));
-                                        animdata.AddRange(BitConverter.GetBytes((ushort)(anims[i].subAnimations[childNum].delta.Length)));
-                                        animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].unk1)); // not sure
-                                        animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].unk2)); // not sure
-                                        animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].unk3)); // not sure
-                                        break;
-                                    case NISLoader.AnimType.ANIM_DELTAQUAT:
-                                        animdata.AddRange(BitConverter.GetBytes((uint)animationChildOffsets[animationChildOffsets.Count - 1][childNum]));
-                                        animdata.AddRange(BitConverter.GetBytes((ushort)(anims[i].subAnimations[childNum].delta.Length)));
-                                        animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].unk1)); // not sure
-                                        break;
-                                    default:
-                                        throw new NotImplementedException();
+                                    animdata.AddRange(BitConverter.GetBytes((uint)animationChildMetaOffsets[animationChildOffsets.Count - 1][childNum]));
                                 }
-                            }
-                            animationCompoundMetaOffsets.Add(animdata.Count);
-                            animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].type));
-                            animdata.AddRange(BitConverter.GetBytes(NISLoader.checkSum));
-                            animdata.AddRange(BitConverter.GetBytes((uint)animationCompoundOffsets.Last()));
-                            animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].subAnimations.Count));
-                            animdata.AddRange(BitConverter.GetBytes((ushort)(anims[i].subAnimations[0].delta.Length))); // todo more counts?
-                            for (int childNum = 0; childNum < anims[i].subAnimations.Count; childNum++)
-                            {
-                                animdata.AddRange(BitConverter.GetBytes((uint)animationChildMetaOffsets[animationChildOffsets.Count - 1][childNum]));
-                            }
-                            break;
-                        default:
-                            throw new NotImplementedException();
+                                break;
+                            default:
+                                throw new NotImplementedException();
+                        }
                     }
-                }
-                int AnimationsOffset = animdata.Count;
-                for (int i = 0; i < anims.Count; i++)
-                {
-                    animdata.AddRange(BitConverter.GetBytes((uint)animationCompoundMetaOffsets[i]));
-                }
-                int AnimationNames = animdata.Count;
-                for (int i = 0; i < anims.Count; i++)
-                {
-                    animdata.AddRange(BitConverter.GetBytes((uint)nameOffsets[i]));
-                }
-                while (animdata.Count % 16 != 0)
-                    animdata.Add(0);
-                int AnimationBankOffset = animdata.Count;
-                animdata.AddRange(BitConverter.GetBytes((uint)28)); // not sure
-                animdata.AddRange(BitConverter.GetBytes((uint)anims.Count));
-                int stuffOffset = animdata.Count;
-                animdata.AddRange(BitConverter.GetBytes((uint)0));
-                animdata.AddRange(BitConverter.GetBytes((uint)0));
-                int AnimationsPointerOffset = animdata.Count;
-                animdata.AddRange(BitConverter.GetBytes((uint)AnimationsOffset));
-                int NamesPointerOffset = animdata.Count;
-                animdata.AddRange(BitConverter.GetBytes((uint)AnimationNames));
-                animdata.AddRange(BitConverter.GetBytes((uint)0));
-                animdata.AddRange(BitConverter.GetBytes((uint)0));
+                    int AnimationsOffset = animdata.Count;
+                    for (int i = 0; i < anims.Count; i++)
+                    {
+                        animdata.AddRange(BitConverter.GetBytes((uint)animationCompoundMetaOffsets[i]));
+                    }
+                    int AnimationNames = animdata.Count;
+                    for (int i = 0; i < anims.Count; i++)
+                    {
+                        animdata.AddRange(BitConverter.GetBytes((uint)nameOffsets[i]));
+                    }
+                    while (animdata.Count % 16 != 0)
+                        animdata.Add(0);
+                    int AnimationBankOffset = animdata.Count;
+                    animdata.AddRange(BitConverter.GetBytes((uint)28)); // not sure
+                    animdata.AddRange(BitConverter.GetBytes((uint)anims.Count));
+                    int stuffOffset = animdata.Count;
+                    animdata.AddRange(BitConverter.GetBytes((uint)0));
+                    animdata.AddRange(BitConverter.GetBytes((uint)0));
+                    int AnimationsPointerOffset = animdata.Count;
+                    animdata.AddRange(BitConverter.GetBytes((uint)AnimationsOffset));
+                    int NamesPointerOffset = animdata.Count;
+                    animdata.AddRange(BitConverter.GetBytes((uint)AnimationNames));
+                    animdata.AddRange(BitConverter.GetBytes((uint)0));
+                    animdata.AddRange(BitConverter.GetBytes((uint)0));
                 
-                f = f_orig.ToList();
+                    f = f_orig.ToList();
 
-                /*if (NISLoader.DescriptionOffset != 0)
-                {
-                    int desclength = NISLoader.SceneDescription.Length + 1;
-                    while (desclength % 4 != 0)
-                        desclength++;
-                    f.RemoveRange(NISLoader.DescriptionOffset, desclength);
-                    string NewDescription = "Edited by " + PlayerPrefs.GetString("AuthorName", "Anon") + " in icebreaker " + Application.version;
-                    NISLoader.SceneDescription = NewDescription;
-                    NISProps[7].text = NISLoader.SceneDescription;
-                    List<byte> bb = NewDescription.ToArray().Select(x => (byte) x).ToList();
-                    do
+                    /*if (NISLoader.DescriptionOffset != 0)
                     {
-                        bb.Add(0);
-                    } while (bb.Count % 4 != 0);
+                        int desclength = NISLoader.SceneDescription.Length + 1;
+                        while (desclength % 4 != 0)
+                            desclength++;
+                        f.RemoveRange(NISLoader.DescriptionOffset, desclength);
+                        string NewDescription = "Edited by " + PlayerPrefs.GetString("AuthorName", "Anon") + " in icebreaker " + Application.version;
+                        NISLoader.SceneDescription = NewDescription;
+                        NISProps[7].text = NISLoader.SceneDescription;
+                        List<byte> bb = NewDescription.ToArray().Select(x => (byte) x).ToList();
+                        do
+                        {
+                            bb.Add(0);
+                        } while (bb.Count % 4 != 0);
 
-                    f.InsertRange(NISLoader.DescriptionOffset, bb);
-                }*/
+                        f.InsertRange(NISLoader.DescriptionOffset, bb);
+                    }*/
 
-                f.RemoveRange(ELFChunkStart + AnimationBank_Offset, 4);
-                f.InsertRange(ELFChunkStart + AnimationBank_Offset, BitConverter.GetBytes((uint)AnimationBankOffset));
-                oldsize = BitConverter.ToInt32(f_orig, ELFChunkStart + ELFData_SizeOffset);
+                    f.RemoveRange(ELFChunkStart + AnimationBank_Offset, 4);
+                    f.InsertRange(ELFChunkStart + AnimationBank_Offset, BitConverter.GetBytes((uint)AnimationBankOffset));
+                    oldsize = BitConverter.ToInt32(f_orig, ELFChunkStart + ELFData_SizeOffset);
 
-                int TableOffset = AnimationBank_Offset + 5 * 4;
-                // 0 - unk
-                TableOffset += 8;
-                // 1 - NamesPointerOffset
-                f.RemoveRange(ELFChunkStart + TableOffset, 4);
-                f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)NamesPointerOffset));
-                TableOffset += 8;
-                // 2 - AnimationsPointerOffset
-                f.RemoveRange(ELFChunkStart + TableOffset, 4);
-                f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)AnimationsPointerOffset));
-                TableOffset += 8;
-                // 3 - stuffOffset
-                f.RemoveRange(ELFChunkStart + TableOffset, 4);
-                f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)stuffOffset));
-                TableOffset += 8;
-                // 4 - AnimationNames[-1]
-                // 5 - AnimationNames[-2]
-                // 6 - AnimationNames[-3]
-                for (int i = anims.Count - 1; i >= 0; i--)
-                {
-                    f.RemoveRange(ELFChunkStart + TableOffset, 4);
-                    f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)(AnimationNames + i * 4)));
+                    int TableOffset = 0;
                     TableOffset += 8;
-                }
-                // 7 - AnimationsOffset[-1]
-                // 8 - AnimationsOffset[-2]
-                // 9 - AnimationsOffset[-3]
-                for (int i = anims.Count - 1; i >= 0; i--)
-                {
-                    f.RemoveRange(ELFChunkStart + TableOffset, 4);
-                    f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)(AnimationsOffset + i * 4)));
                     TableOffset += 8;
-                }
-                // 10 - -1 compound child offset
-                // 11 - -1 compound body
-                // 12 - -1 child body
-                // 13 - -2 comoound child offset
-                // 14 - -2 compound body
-                // 15 - -2 child body
-                // 16 - -3 compound child offset
-                // 17 - -3 compound body
-                // 18 - -3 child body
-                for (int i = anims.Count - 1; i >= 0; i--)
-                {
-                    f.RemoveRange(ELFChunkStart + TableOffset, 4);
-                    f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)(animationCompoundMetaOffsets[i] + 12)));
                     TableOffset += 8;
-                    f.RemoveRange(ELFChunkStart + TableOffset, 4);
-                    f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)(animationCompoundMetaOffsets[i] + 4)));
-                    TableOffset += 8;
-                    for (int childNum = anims[i].subAnimations.Count - 1; childNum >= 0; childNum--)
+                    for (int i = anims.Count - 1; i >= 0; i--)
                     {
-                        f.RemoveRange(ELFChunkStart + TableOffset, 4);
-                        f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint) (animationChildMetaOffsets[i][childNum] + 4)));
                         TableOffset += 8;
                     }
-                }
-                f.RemoveRange(ELFChunkStart + TableOffset, 4);
-                f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)0));
-                TableOffset += 4;
-                f.RemoveRange(ELFChunkStart + TableOffset, 4);
-                f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)0));
-                TableOffset += 4;
+                    for (int i = anims.Count - 1; i >= 0; i--)
+                    {
+                        TableOffset += 8;
+                    }
+                    for (int i = anims.Count - 1; i >= 0; i--)
+                    {
+                        TableOffset += 8;
+                        TableOffset += 8;
+                        for (int childNum = anims[i].subAnimations.Count - 1; childNum >= 0; childNum--)
+                        {
+                            TableOffset += 8;
+                        }
+                    }
+                    TableOffset += 4;
+                    TableOffset += 4;
 
-                f.RemoveRange(ELFChunkStart + ELFData_SizeOffset, 4);
-                f.InsertRange(ELFChunkStart + ELFData_SizeOffset, BitConverter.GetBytes((uint)animdata.Count));
-                int old = BitConverter.ToInt32(f_orig, ELFChunkStart + shstrtab_offset);
-                f.RemoveRange(ELFChunkStart + shstrtab_offset, 4);
-                f.InsertRange(ELFChunkStart + shstrtab_offset, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize))));
-                old = BitConverter.ToInt32(f_orig, ELFChunkStart + strtab_offset);
-                f.RemoveRange(ELFChunkStart + strtab_offset, 4);
-                f.InsertRange(ELFChunkStart + strtab_offset, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize))));
-                old = BitConverter.ToInt32(f_orig, ELFChunkStart + symtab_offset);
-                f.RemoveRange(ELFChunkStart + symtab_offset, 4);
-                f.InsertRange(ELFChunkStart + symtab_offset, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize))));
-                old = BitConverter.ToInt32(f_orig, ELFChunkStart + rel_data_offset);
-                f.RemoveRange(ELFChunkStart + rel_data_offset, 4);
-                f.InsertRange(ELFChunkStart + rel_data_offset, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize))));
-                old = BitConverter.ToInt32(f_orig, ELFChunkStart + 32);
-                f.RemoveRange(ELFChunkStart + 32, 4);
-                f.InsertRange(ELFChunkStart + 32, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize))));
-                foreach (int off in miscoffsets)
-                {
-                    old = BitConverter.ToInt32(f_orig, ELFChunkStart + off);
-                    f.RemoveRange(ELFChunkStart + off, 4);
-                    f.InsertRange(ELFChunkStart + off, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize))));
-                }
-                f.RemoveRange(ELFChunkStart + ELFData_Offset, oldsize);
-                f.InsertRange(ELFChunkStart + ELFData_Offset, animdata);
-                old = BitConverter.ToInt32(f_orig, ELFChunkSize);
-                f.RemoveRange(ELFChunkSize, 4);
-                f.InsertRange(ELFChunkSize, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize))));
+                    int tabledelta = TableOffset - elftablelength;
+                    int tboffstart = ELFChunkStart + AnimationBank_Offset + 5 * 4;
 
-                path = "/NIS/Scene_" + nisname + "_BundleB.bun";
-                if (!File.Exists(GameDirectory + path))
-                {
-                    path = path.ToUpper();
+                    f.RemoveRange(ELFChunkStart + ELFData_SizeOffset, 4);
+                    f.InsertRange(ELFChunkStart + ELFData_SizeOffset, BitConverter.GetBytes((uint)animdata.Count));
+                    int old = BitConverter.ToInt32(f_orig, ELFChunkStart + shstrtab_offset);
+                    f.RemoveRange(ELFChunkStart + shstrtab_offset, 4);
+                    f.InsertRange(ELFChunkStart + shstrtab_offset, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize) + (old > tboffstart ? tabledelta : 0))));
+                    old = BitConverter.ToInt32(f_orig, ELFChunkStart + strtab_offset);
+                    f.RemoveRange(ELFChunkStart + strtab_offset, 4);
+                    f.InsertRange(ELFChunkStart + strtab_offset, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize) + (old > tboffstart ? tabledelta : 0))));
+                    old = BitConverter.ToInt32(f_orig, ELFChunkStart + symtab_offset);
+                    f.RemoveRange(ELFChunkStart + symtab_offset, 4);
+                    f.InsertRange(ELFChunkStart + symtab_offset, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize) + (old > tboffstart ? tabledelta : 0))));
+                    old = BitConverter.ToInt32(f_orig, ELFChunkStart + rel_data_offset);
+                    f.RemoveRange(ELFChunkStart + rel_data_offset, 4);
+                    f.InsertRange(ELFChunkStart + rel_data_offset, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize) + (old > tboffstart ? tabledelta : 0))));
+                    old = BitConverter.ToInt32(f_orig, ELFChunkStart + 32);
+                    f.RemoveRange(ELFChunkStart + 32, 4);
+                    f.InsertRange(ELFChunkStart + 32, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize) + (old > tboffstart ? tabledelta : 0))));
+                    foreach (int off in miscoffsets)
+                    {
+                        old = BitConverter.ToInt32(f_orig, ELFChunkStart + off);
+                        f.RemoveRange(ELFChunkStart + off, 4);
+                        f.InsertRange(ELFChunkStart + off, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize) + (old > tboffstart ? tabledelta : 0))));
+                    }
+
+                    TableOffset = tboffstart + 8 - ELFChunkStart;
+                    if (elftablelength == 0)
+                        throw new Exception("Table length is 0");
+                    f.RemoveRange(ELFChunkStart + TableOffset, elftablelength);
+
+                    f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)NamesPointerOffset));
+                    f.InsertRange(ELFChunkStart + TableOffset + 4, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, ELFChunkStart + TableOffset + 4)));
+                    TableOffset += 8;
+                    f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)AnimationsPointerOffset));
+                    f.InsertRange(ELFChunkStart + TableOffset + 4, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, ELFChunkStart + TableOffset + 4)));
+                    TableOffset += 8;
+                    f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)stuffOffset));
+                    f.InsertRange(ELFChunkStart + TableOffset + 4, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, ELFChunkStart + TableOffset + 4)));
+                    TableOffset += 8;
+                    for (int i = anims.Count - 1; i >= 0; i--)
+                    {
+                        f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)(AnimationNames + i * 4)));
+                        f.InsertRange(ELFChunkStart + TableOffset + 4, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, ELFChunkStart + TableOffset + 4)));
+                        TableOffset += 8;
+                    }
+                    for (int i = anims.Count - 1; i >= 0; i--)
+                    {
+                        f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)(AnimationsOffset + i * 4)));
+                        f.InsertRange(ELFChunkStart + TableOffset + 4, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, ELFChunkStart + TableOffset + 4)));
+                        TableOffset += 8;
+                    }
+                    for (int i = anims.Count - 1; i >= 0; i--)
+                    {
+                        f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)(animationCompoundMetaOffsets[i] + 12)));
+                        f.InsertRange(ELFChunkStart + TableOffset + 4, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, ELFChunkStart + TableOffset + 4)));
+                        TableOffset += 8;
+                        f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)(animationCompoundMetaOffsets[i] + 4)));
+                        f.InsertRange(ELFChunkStart + TableOffset + 4, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, ELFChunkStart + TableOffset + 4)));
+                        TableOffset += 8;
+                        for (int childNum = anims[i].subAnimations.Count - 1; childNum >= 0; childNum--)
+                        {
+                            f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint) (animationChildMetaOffsets[i][childNum] + 4)));
+                            f.InsertRange(ELFChunkStart + TableOffset + 4, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, ELFChunkStart + TableOffset + 4)));
+                            TableOffset += 8;
+                        }
+                    }
+                    f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)0));
+                    TableOffset += 4;
+                    f.InsertRange(ELFChunkStart + TableOffset, BitConverter.GetBytes((uint)0));
+                    TableOffset += 4;
+
+                    f.RemoveRange(ELFChunkStart + ELFData_Offset, oldsize);
+                    f.InsertRange(ELFChunkStart + ELFData_Offset, animdata);
+                    old = BitConverter.ToInt32(f_orig, ELFChunkSize);
+                    f.RemoveRange(ELFChunkSize, 4);
+                    f.InsertRange(ELFChunkSize, BitConverter.GetBytes((uint)(old + (animdata.Count - oldsize) + tabledelta)));
+
+                    path = "/NIS/Scene_" + nisname + "_BundleB.bun";
                     if (!File.Exists(GameDirectory + path))
-                        throw new Exception("File does not exist");
-                }
+                    {
+                        path = path.ToUpper();
+                        if (!File.Exists(GameDirectory + path))
+                            throw new Exception("File does not exist");
+                    }
                 
-                File.WriteAllBytes(GameDirectory + path, f.ToArray());
+                    File.WriteAllBytes(GameDirectory + path, f.ToArray());
                 } catch (Exception e)
                 {
                     Debug.LogError(e);
@@ -4125,7 +4433,7 @@ public class Main : MonoBehaviour
             switch (cameratrack[curcam].Item2[cursegment].attributes[4])
             {
                 case 0x00:
-                    Transform player_car = ObjectsOnScene.Count > 0 ? ObjectsOnScene["Car1"] : SceneRoot;
+                    Transform player_car = ObjectsOnScene.ContainsKey("Car1") ? ObjectsOnScene["Car1"] : SceneRoot;
                     eyepos = player_car.position + Quaternion.Euler(0f, -90f + player_car.eulerAngles.y, 0f) * eyepos;
                     lookatpos = player_car.position + Quaternion.Euler(0f, -90f + player_car.eulerAngles.y, 0f) * lookatpos;
                     break;

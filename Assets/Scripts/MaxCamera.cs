@@ -59,7 +59,7 @@ public class MaxCamera : MonoBehaviour
      */
     void LateUpdate()
     {
-        if (EventSystem.current.currentSelectedGameObject != null)
+        if (EventSystem.current.currentSelectedGameObject != null || Main.helpshown)
         {
             if (DragMouse.pointerin_counter == 0) {
                 if (Main.CursorType != 0)
