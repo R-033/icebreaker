@@ -45620,7 +45620,7 @@ MonoBehaviour:
 
 
     heyitsleo''s ModTools is used for embedded models (MW only). Thanks to osdever
-    for provided resources for reverse-engineering and elaymm4 for tesing.
+    for provided resources for reverse-engineering and elaymm4 for testing.
 
 
     "Busted" cutscenes are not saveable yet.
@@ -49899,7 +49899,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 263869295}
   m_Direction: 2
   m_Value: 0
-  m_Size: 1
+  m_Size: 0
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
