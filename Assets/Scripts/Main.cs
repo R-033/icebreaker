@@ -920,7 +920,6 @@ public class Main : MonoBehaviour
         while (historyAnimations.Count > currentEntryAnimations)
             historyAnimations.RemoveAt(historyAnimations.Count - 1);
         historyAnimations.Add(entry);
-        Debug.Log("Add " + entry);
         if (historyAnimations.Count > 64)
         {
             historyAnimations.RemoveAt(0);
@@ -2472,6 +2471,7 @@ public class Main : MonoBehaviour
 
     public void AnimationsEditorObjectSelected(string objname)
     {
+        rewinded_this_frame = 5;
         currentlyEditingObject = objname;
         foreach (string obj in ObjectsOnScene.Keys)
         {
@@ -2565,6 +2565,7 @@ public class Main : MonoBehaviour
 
     public void AnimationsEditorSubObjectSelected(int objindex)
     {
+        rewinded_this_frame = 5;
         old_ttt = -1;
         string objnn = currentlyEditingObject;
         if (objindex != 0)
