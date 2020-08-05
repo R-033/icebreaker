@@ -14,6 +14,8 @@ using RuntimeGizmos;
 using UnityEngine.EventSystems;
 using World.Culling;
 
+using Object = System.Object;
+
 public class Main : MonoBehaviour
 {
     public Text OpenedFileName;
@@ -274,7 +276,7 @@ public class Main : MonoBehaviour
 
     public class EditCameraSegment : HistoryEntry
     {
-        public EditCameraSegment(int _track, int _index, NISLoader.CameraTrackEntry _oldentry, NISLoader.CameraTrackEntry _newentry)
+        public EditCameraSegment(int _track, int _index, Object _oldentry, Object _newentry)
         {
             track = _track;
             index = _index;
@@ -284,8 +286,8 @@ public class Main : MonoBehaviour
 
         private int track;
         private int index;
-        private NISLoader.CameraTrackEntry oldentry;
-        private NISLoader.CameraTrackEntry newentry;
+        private Object oldentry;
+        private Object newentry;
 
         public override void Apply()
         {
@@ -311,7 +313,7 @@ public class Main : MonoBehaviour
 
     public class SplitSegment : HistoryEntry
     {
-        public SplitSegment(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry)
+        public SplitSegment(int _track, int _index, float _timeline, Object _oldentry)
         {
             track = _track;
             index = _index;
@@ -322,7 +324,7 @@ public class Main : MonoBehaviour
         private int track;
         private int index;
         private float timeline;
-        private NISLoader.CameraTrackEntry oldentry;
+        private Object oldentry;
         internal int actionNum = 1;
 
         public override void Apply()
@@ -330,15 +332,19 @@ public class Main : MonoBehaviour
             Main main = FindObjectOfType<Main>();
             main.timeline = timeline;
             main.curcam = track;
-            for (int i = 0; i < main.cameratrack[track].Item2.Length; i++)
+            if (oldentry.GetType() == typeof(NISLoader.CameraTrackEntryMW))
             {
-                if (timeline >= main.cameratrack[track].Item2[i].Time && (i == main.cameratrack[track].Item2.Length - 1 || timeline < main.cameratrack[track].Item2[i + 1].Time))
+                for (int i = 0; i < main.cameratrack[track].Item2.Length; i++)
                 {
-                    main.cursegment = i;
-                    break;
+                    if (timeline >= ((NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[i]).Time && (i == main.cameratrack[track].Item2.Length - 1 || timeline < ((NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[i + 1]).Time))
+                    {
+                        main.cursegment = i;
+                        break;
+                    }
                 }
             }
-
+            else
+                throw new Exception("Unsupported action");
             main.dontUseHistory = true;
             main.SegmentEditAction(actionNum);
             main.dontUseHistory = false;
@@ -366,7 +372,7 @@ public class Main : MonoBehaviour
 
     public class CreateSegment : SplitSegment
     {
-        public CreateSegment(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry) : base(_track, _index, _timeline, _oldentry)
+        public CreateSegment(int _track, int _index, float _timeline, Object _oldentry) : base(_track, _index, _timeline, _oldentry)
         {
             actionNum = 4;
         }
@@ -379,7 +385,7 @@ public class Main : MonoBehaviour
 
     public class RemoveSegment : HistoryEntry
     {
-        public RemoveSegment(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry, float _oldtime)
+        public RemoveSegment(int _track, int _index, float _timeline, Object _oldentry, float _oldtime)
         {
             track = _track;
             index = _index;
@@ -392,21 +398,26 @@ public class Main : MonoBehaviour
         private int index;
         private float timeline;
         private float oldtime;
-        private NISLoader.CameraTrackEntry oldentry;
+        private Object oldentry;
 
         public override void Apply()
         {
             Main main = FindObjectOfType<Main>();
             main.timeline = timeline;
             main.curcam = track;
-            for (int i = 0; i < main.cameratrack[track].Item2.Length; i++)
+            if (oldentry.GetType() == typeof(NISLoader.CameraTrackEntryMW))
             {
-                if (timeline >= main.cameratrack[track].Item2[i].Time && (i == main.cameratrack[track].Item2.Length - 1 || timeline < main.cameratrack[track].Item2[i + 1].Time))
+                for (int i = 0; i < main.cameratrack[track].Item2.Length; i++)
                 {
-                    main.cursegment = i;
-                    break;
+                    if (timeline >= ((NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[i]).Time && (i == main.cameratrack[track].Item2.Length - 1 || timeline < ((NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[i + 1]).Time))
+                    {
+                        main.cursegment = i;
+                        break;
+                    }
                 }
             }
+            else
+                throw new Exception("Unsupported action");
 
             main.dontUseHistory = true;
             main.SegmentEditAction(5);
@@ -421,9 +432,14 @@ public class Main : MonoBehaviour
             var entries = main.cameratrack[track].Item2.ToList();
             if (oldtime > 0f)
             {
-                var v = entries[0];
-                v.Time = oldtime;
-                entries[0] = v;
+                if (entries[0].GetType() == typeof(NISLoader.CameraTrackEntryMW))
+                {
+                    var v = (NISLoader.CameraTrackEntryMW)entries[0];
+                    v.Time = oldtime;
+                    entries[0] = v;
+                }
+                else
+                    throw new Exception("Unsupported action");
             }
 
             entries.Insert(index, oldentry);
@@ -441,7 +457,7 @@ public class Main : MonoBehaviour
 
     public class MergeSegmentLeft : HistoryEntry
     {
-        public MergeSegmentLeft(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry1, NISLoader.CameraTrackEntry _oldentry2)
+        public MergeSegmentLeft(int _track, int _index, float _timeline, Object _oldentry1, Object _oldentry2)
         {
             track = _track;
             index = _index;
@@ -454,8 +470,8 @@ public class Main : MonoBehaviour
         private int index;
         private float timeline;
         private float oldtime;
-        private NISLoader.CameraTrackEntry oldentry1;
-        private NISLoader.CameraTrackEntry oldentry2;
+        private Object oldentry1;
+        private Object oldentry2;
         internal int actionNum = 2;
 
         public override void Apply()
@@ -463,14 +479,19 @@ public class Main : MonoBehaviour
             Main main = FindObjectOfType<Main>();
             main.timeline = timeline;
             main.curcam = track;
-            for (int i = 0; i < main.cameratrack[track].Item2.Length; i++)
+            if (oldentry1.GetType() == typeof(NISLoader.CameraTrackEntryMW))
             {
-                if (timeline >= main.cameratrack[track].Item2[i].Time && (i == main.cameratrack[track].Item2.Length - 1 || timeline < main.cameratrack[track].Item2[i + 1].Time))
+                for (int i = 0; i < main.cameratrack[track].Item2.Length; i++)
                 {
-                    main.cursegment = i;
-                    break;
+                    if (timeline >= ((NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[i]).Time && (i == main.cameratrack[track].Item2.Length - 1 || timeline < ((NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[i + 1]).Time))
+                    {
+                        main.cursegment = i;
+                        break;
+                    }
                 }
             }
+            else
+                throw new Exception("Unsupported action");
 
             main.dontUseHistory = true;
             main.SegmentEditAction(actionNum);
@@ -499,7 +520,7 @@ public class Main : MonoBehaviour
 
     public class MergeSegmentRight : MergeSegmentLeft
     {
-        public MergeSegmentRight(int _track, int _index, float _timeline, NISLoader.CameraTrackEntry _oldentry1, NISLoader.CameraTrackEntry _oldentry2) : base(_track, _index, _timeline, _oldentry1, _oldentry2)
+        public MergeSegmentRight(int _track, int _index, float _timeline, Object _oldentry1, Object _oldentry2) : base(_track, _index, _timeline, _oldentry1, _oldentry2)
         {
             actionNum = 3;
         }
@@ -586,7 +607,7 @@ public class Main : MonoBehaviour
 
     public class CreateCameraTrack : HistoryEntry
     {
-        public CreateCameraTrack(int _track, int _oldtrack, (NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[]) _trackdata)
+        public CreateCameraTrack(int _track, int _oldtrack, (NISLoader.CameraTrackHeader, Object[]) _trackdata)
         {
             track = _track;
             oldtrack = _oldtrack;
@@ -595,7 +616,7 @@ public class Main : MonoBehaviour
         
         private int track;
         private int oldtrack;
-        private (NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[]) trackdata;
+        private (NISLoader.CameraTrackHeader, Object[]) trackdata;
         
         public override void Apply()
         {
@@ -633,7 +654,7 @@ public class Main : MonoBehaviour
     
     public class HRemoveCameraTrack : HistoryEntry
     {
-        public HRemoveCameraTrack(int _track, int _newtrack, (NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[]) _trackdata)
+        public HRemoveCameraTrack(int _track, int _newtrack, (NISLoader.CameraTrackHeader, Object[]) _trackdata)
         {
             track = _track;
             newtrack = _newtrack;
@@ -642,7 +663,7 @@ public class Main : MonoBehaviour
         
         private int track;
         private int newtrack;
-        private (NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[]) trackdata;
+        private (NISLoader.CameraTrackHeader, Object[]) trackdata;
         
         public override void Apply()
         {
@@ -702,12 +723,21 @@ public class Main : MonoBehaviour
         void Swap()
         {
             Main main = FindObjectOfType<Main>();
-            float firstlength = (entry < main.cameratrack[track].Item2.Length - 1 ? main.cameratrack[track].Item2[entry + 1].Time : 1f) - main.cameratrack[track].Item2[entry].Time;
-            var v = main.cameratrack[track].Item2[entry];
-            main.cameratrack[track].Item2[entry] = main.cameratrack[track].Item2[entry - 1];
-            main.cameratrack[track].Item2[entry - 1] = v;
-            main.cameratrack[track].Item2[entry - 1].Time = main.cameratrack[track].Item2[entry].Time;
-            main.cameratrack[track].Item2[entry].Time = main.cameratrack[track].Item2[entry - 1].Time + firstlength;
+            if (main.cameratrack[track].Item2[entry].GetType() == typeof(NISLoader.CameraTrackEntryMW))
+            {
+                float firstlength = (entry < main.cameratrack[track].Item2.Length - 1 ? ((NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[entry + 1]).Time : 1f) - ((NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[entry]).Time;
+                var v = main.cameratrack[track].Item2[entry];
+                main.cameratrack[track].Item2[entry] = main.cameratrack[track].Item2[entry - 1];
+                main.cameratrack[track].Item2[entry - 1] = v;
+                NISLoader.CameraTrackEntryMW en = (NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[entry - 1];
+                en.Time = ((NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[entry]).Time;
+                main.cameratrack[track].Item2[entry - 1] = en;
+                en = (NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[entry];
+                en.Time = ((NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[entry - 1]).Time + firstlength;
+                main.cameratrack[track].Item2[entry] = en;
+            }
+            else
+                throw new Exception("Unsupported action");
             main.CtEntryIcons[entry].transform.SetSiblingIndex(entry - 1);
             main.CtEntryIcons[entry - 1].transform.SetSiblingIndex(entry);
             var im = main.CtEntryIcons[entry];
@@ -755,7 +785,14 @@ public class Main : MonoBehaviour
         void Resize(float t)
         {
             Main main = FindObjectOfType<Main>();
-            main.cameratrack[track].Item2[entry + 1].Time = t;
+            if (main.cameratrack[track].Item2[entry + 1].GetType() == typeof(NISLoader.CameraTrackEntryMW))
+            {
+                NISLoader.CameraTrackEntryMW e = (NISLoader.CameraTrackEntryMW)main.cameratrack[track].Item2[entry + 1];
+                e.Time = t;
+                main.cameratrack[track].Item2[entry + 1] = e;
+            }
+            else
+                throw new Exception("Unsupported action");
             main.UpdCameraTrackPreview();
             main.ChangeCameraTrack(main.curcam);
         }
@@ -1723,10 +1760,36 @@ public class Main : MonoBehaviour
         "Cinematics"
     };
 
+    public static string[] camtrackpaths = new[] { "/GLOBAL/InGameB.lzc" };
+
     public void UpdateNisList()
     {
         foreach (RectTransform tr in NisList)
             Destroy(tr.gameObject);
+
+
+
+
+        // TEST
+        /*string[] files = Directory.GetFiles(GameDirectory + "/GLOBAL/");
+        foreach (string f in files)
+        {
+            byte[] bb = File.ReadAllBytes(f);
+            bb = NISLoader.DecompressJZC(bb);
+            int counter = 0;
+            for (int i = 0; i < bb.Length; i += 4)
+            {
+                if (bb[i] == 0x10 && bb[i + 1] == 0xB2 && bb[i + 2] == 0x03 && bb[i + 3] == 0x00)
+                {
+                    i += 4;
+                    counter++;
+                }
+            }
+            Debug.Log(Path.GetFileName(f) + " " + counter);
+        }*/
+
+
+
         if (Directory.Exists(GameDirectory + "/NIS/"))
         {
             string[] f2 = Directory.GetFiles(GameDirectory + "/NIS/");
@@ -1745,11 +1808,15 @@ public class Main : MonoBehaviour
             foreach (string bank in extraCamBanks)
                 extraNames.Add(NISLoader.BinHash(bank), bank);
             byte[] f = null;
-            string path = "/GLOBAL/InGameB.lzc";
-            if (File.Exists(GameDirectory + path))
-                f = File.ReadAllBytes(GameDirectory + path);
-            else if (File.Exists(GameDirectory + path.ToUpper()))
-                f = File.ReadAllBytes(GameDirectory + path.ToUpper());
+            foreach (string path in camtrackpaths)
+            {
+                if (File.Exists(GameDirectory + path))
+                    f = File.ReadAllBytes(GameDirectory + path);
+                else if (File.Exists(GameDirectory + path.ToUpper()))
+                    f = File.ReadAllBytes(GameDirectory + path.ToUpper());
+                if (f != null)
+                    break;
+            }
             f = NISLoader.DecompressJZC(f);
             
             ToggleGroup group = NisList.GetComponent<ToggleGroup>();
@@ -1825,7 +1892,7 @@ public class Main : MonoBehaviour
     List<NISLoader.Skeleton> skeletons;
     Dictionary<string, NISLoader.Animation> skeletonAnims;
     [HideInInspector]
-    public List<(NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[])> cameratrack;
+    public List<(NISLoader.CameraTrackHeader, Object[])> cameratrack;
     private List<NISLoader.CameraSpline> camerasplines;
     private int cameratrack_offset;
     [HideInInspector]
@@ -1838,7 +1905,7 @@ public class Main : MonoBehaviour
 
     public InputField ImportingLZCPath;
     public RectTransform CameraTrackListImport;
-    List<(NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[])> ImportCamEntries;
+    List<(NISLoader.CameraTrackHeader, Object[])> ImportCamEntries;
     public Button ImpExpButton;
 
     public void ImportCameraTrack()
@@ -1891,12 +1958,15 @@ public class Main : MonoBehaviour
         else
         {
             gamepath = path;
-            filepath = path + "/GLOBAL/InGameB.lzc";
-            if (!File.Exists(filepath))
+            filepath = "";
+            foreach (string _path in camtrackpaths)
             {
-                filepath = path + "/GLOBAL/INGAMEB.LZC";
-                if (!File.Exists(filepath))
-                    return;
+                if (File.Exists(GameDirectory + _path))
+                    filepath = _path;
+                else if (File.Exists(GameDirectory + _path.ToUpper()))
+                    filepath = _path;
+                if (filepath != "")
+                    break;
             }
         }
         if (usehash)
@@ -1943,12 +2013,15 @@ public class Main : MonoBehaviour
             filepath = path;
         } else {
             gamepath = path;
-            filepath = path + "/GLOBAL/InGameB.lzc";
-            if (!File.Exists(filepath))
+            filepath = "";
+            foreach (string _path in camtrackpaths)
             {
-                filepath = path + "/GLOBAL/INGAMEB.LZC";
-                if (!File.Exists(filepath))
-                    return;
+                if (File.Exists(path + _path))
+                    filepath = path + _path;
+                else if (File.Exists(path + _path.ToUpper()))
+                    filepath = path + _path;
+                if (filepath != "")
+                    break;
             }
         }
         string[] f2 = Directory.GetFiles(gamepath + "/NIS/");
@@ -3437,12 +3510,15 @@ public class Main : MonoBehaviour
             case 3:
                 try
                 {
-                    path = "/GLOBAL/InGameB.lzc";
-                    if (!File.Exists(GameDirectory + path))
+                    path = "";
+                    foreach (string _path in camtrackpaths)
                     {
-                        path = path.ToUpper();
-                        if (!File.Exists(GameDirectory + path))
-                            throw new Exception("File does not exist");
+                        if (File.Exists(GameDirectory + _path))
+                            path = _path;
+                        else if (File.Exists(GameDirectory + _path.ToUpper()))
+                            path = _path;
+                        if (path != "")
+                            break;
                     }
                     byte[] f_orig = File.ReadAllBytes(GameDirectory + path);
                     f_orig = NISLoader.DecompressJZC(f_orig);
@@ -3453,11 +3529,20 @@ public class Main : MonoBehaviour
                     chunk.AddRange(BitConverter.GetBytes(cameratrack.Count));
                     for (int i = 0; i < cameratrack.Count; i++)
                     {
-                        var hh = cameratrack[i].Item1;
+                        var hh = cameratrack[i].Item1.Clone();
+                        if (hh.Duration == hh.DurationCarbon)
+                            hh.Duration = 0f;
                         hh.entryCount = (short)cameratrack[i].Item2.Length;
                         chunk.AddRange(CoordDebug.RawSerialize(hh));
                         for (int j = 0; j < cameratrack[i].Item2.Length; j++)
-                            chunk.AddRange(CoordDebug.RawSerialize(cameratrack[i].Item2[j]));
+                        {
+                            if (cameratrack[i].Item2[j].GetType() == typeof(NISLoader.CameraTrackEntryMW))
+                                chunk.AddRange(CoordDebug.RawSerialize((NISLoader.CameraTrackEntryMW)cameratrack[i].Item2[j]));
+                            else if (cameratrack[i].Item2[j].GetType() == typeof(NISLoader.CameraTrackEntryCarbon))
+                                chunk.AddRange(CoordDebug.RawSerialize((NISLoader.CameraTrackEntryCarbon)cameratrack[i].Item2[j]));
+                            else
+                                throw new Exception("Error saving: unsupported camera format");
+                        }
                     }
 
                     bool updlistpls = false;
@@ -3713,15 +3798,7 @@ public class Main : MonoBehaviour
         editorTimelineMax = Mathf.Clamp(t, editorTimelineMin, 1f);
         if (old != t)
             UpdCameraTrackPreview();
-    }
-
-    public static bool CameraSmoothingEnabled = true;
-
-    public void UpdateCameraSmoothing(bool enable)
-    {
-        CameraSmoothingEnabled = enable;
-        GenCameraSplines();
-    }
+    }\
 
     public void RenameCameraTrack()
     {
