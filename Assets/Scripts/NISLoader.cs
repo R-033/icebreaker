@@ -17,8 +17,6 @@ using Common;
 using Common.Geometry.Data;
 using Common.Textures.Data;
 
-using Object = System.Object;
-
 [ExecuteAlways]
 public class NISLoader : MonoBehaviour
 {
@@ -27,11 +25,10 @@ public class NISLoader : MonoBehaviour
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public struct CameraTrackHeader
 	{
-		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)]
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
 		public byte[] Unknown1;
 
-        public float DurationCarbon;
-        public float Duration;
+		public float Duration;
 		public short entryCount;
 		public byte zero;
 
@@ -48,10 +45,10 @@ public class NISLoader : MonoBehaviour
 		}
 	}
 
-    // 132 bytes
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-	public struct CameraTrackEntryMW
-    {
+	// 132 bytes
+	[StructLayout(LayoutKind.Sequential, Pack = 1)]
+	public struct CameraTrackEntry
+	{
 		// 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15
 		// 0D-00-01-01 01-01-00-00 00-00-03-00 1F-BD-00-00
 		// 10 - shows police LetterBox when 0x03, 0x02 is fadeout
@@ -90,9 +87,9 @@ public class NISLoader : MonoBehaviour
 		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
 		public byte[] unk13;
 
-		public CameraTrackEntryMW Clone() // todo add in cxmw
+		public CameraTrackEntry Clone() // todo add in cxmw
 		{
-            CameraTrackEntryMW clone = (CameraTrackEntryMW)MemberwiseClone();
+			CameraTrackEntry clone = (CameraTrackEntry)MemberwiseClone();
 			clone.attributes = new byte[16];
 			for (int i = 0; i < 16; i++)
 				clone.attributes[i] = attributes[i];
@@ -103,62 +100,7 @@ public class NISLoader : MonoBehaviour
 		}
 	}
 
-    // 132 bytes
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    public struct CameraTrackEntryCarbon
-    {
-        // 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15
-        // 0D-00-01-01 01-01-00-00 00-00-03-00 1F-BD-00-00
-        // 10 - shows police LetterBox when 0x03, 0x02 is fadeout
-        // 4 - 0 when car should be tracked, 1 when worldspace, 3 when localspace
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
-        public byte[] attributes;
-
-        public float Time;
-        public float unk5;
-        public float unk6;
-        public float EyeX;
-        public float EyeZ;
-        public float EyeY;
-        public float EyeX2;
-        public float EyeZ2;
-        public float EyeY2;
-        public float LookX;
-        public float LookZ;
-        public float LookY;
-        public float LookX2;
-        public float LookZ2;
-        public float LookY2;
-        public float Tangent;
-        public float Tangent2;
-        public float FocalLength;
-        public float FocalLength2;
-        public float unk9;
-        public float unk10;
-        public float Amp;
-        public float Amp2;
-        public float Freq;
-        public float Freq2;
-        public float unk11;
-        public float unk12;
-
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
-        public byte[] unk13;
-
-        public CameraTrackEntryCarbon Clone()
-        {
-            CameraTrackEntryCarbon clone = (CameraTrackEntryCarbon)MemberwiseClone();
-            clone.attributes = new byte[16];
-            for (int i = 0; i < 16; i++)
-                clone.attributes[i] = attributes[i];
-            clone.unk13 = new byte[8];
-            for (int i = 0; i < 8; i++)
-                clone.unk13[i] = unk13[i];
-            return clone;
-        }
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public struct NisScene
 	{
 		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
@@ -178,7 +120,7 @@ public class NISLoader : MonoBehaviour
 		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
 		public byte[] unk;
 
-		[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 12)]
+		[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 16)]
 		public string SeeulatorOverlayName;
 	}
 
@@ -187,9 +129,9 @@ public class NISLoader : MonoBehaviour
 
 	public struct camrec
 	{
-		public Object e;
+		public CameraTrackEntry e;
 
-		public camrec(Object _e)
+		public camrec(CameraTrackEntry _e)
 		{
 			e = _e;
 		}
@@ -197,45 +139,36 @@ public class NISLoader : MonoBehaviour
 		public (camrec, camrec) SplitInTwo(float nexttime)
 		{
 			camrec camrec1 = new camrec();
-            camrec camrec2 = new camrec();
-            if (e.GetType() == typeof(CameraTrackEntryMW))
-            {
-                CameraTrackEntryMW s = (CameraTrackEntryMW)e;
-                CameraTrackEntryMW result = ((CameraTrackEntryMW)e).Clone();
-                result.unk6 = Mathf.Lerp(s.unk5, s.unk6, 0.5f);
-                result.EyeX2 = Mathf.Lerp(s.EyeX, s.EyeX2, 0.5f);
-                result.EyeY2 = Mathf.Lerp(s.EyeY, s.EyeY2, 0.5f);
-                result.EyeZ2 = Mathf.Lerp(s.EyeZ, s.EyeZ2, 0.5f);
-                result.LookX2 = Mathf.Lerp(s.LookX, s.LookX2, 0.5f);
-                result.LookY2 = Mathf.Lerp(s.LookY, s.LookY2, 0.5f);
-                result.LookZ2 = Mathf.Lerp(s.LookZ, s.LookZ2, 0.5f);
-                result.Tangent2 = Mathf.Lerp(s.Tangent, s.Tangent2, 0.5f);
-                result.FocalLength2 = Mathf.Lerp(s.FocalLength, s.FocalLength2, 0.5f);
-                result.unk10 = Mathf.Lerp(s.unk9, s.unk10, 0.5f);
-                result.Amp2 = Mathf.Lerp(s.Amp, s.Amp2, 0.5f);
-                result.Freq2 = Mathf.Lerp(s.Freq, s.Freq2, 0.5f);
-                result.unk12 = Mathf.Lerp(s.unk11, s.unk12, 0.5f);
-                camrec1.e = result;
-                CameraTrackEntryMW result2 = ((CameraTrackEntryMW)e).Clone();
-                result2.Time = Mathf.Lerp(s.Time, nexttime, 0.5f);
-                result2.unk5 = result.unk6;
-                result2.EyeX = result.EyeX2;
-                result2.EyeY = result.EyeY2;
-                result2.EyeZ = result.EyeZ2;
-                result2.LookX = result.LookX2;
-                result2.LookY = result.LookY2;
-                result2.LookZ = result.LookZ2;
-                result2.Tangent = result.Tangent2;
-                result2.FocalLength = result.FocalLength2;
-                result2.unk9 = result.unk10;
-                result2.Amp = result.Amp2;
-                result2.Freq = result.Freq2;
-                result2.unk11 = result.unk12;
-                camrec2.e = result2;
-            } else
-            {
-                throw new Exception("Unsupported action");
-            }
+			camrec1.e = e.Clone();
+			camrec1.e.unk6 = Mathf.Lerp(e.unk5, e.unk6, 0.5f);
+			camrec1.e.EyeX2 = Mathf.Lerp(e.EyeX, e.EyeX2, 0.5f);
+			camrec1.e.EyeY2 = Mathf.Lerp(e.EyeY, e.EyeY2, 0.5f);
+			camrec1.e.EyeZ2 = Mathf.Lerp(e.EyeZ, e.EyeZ2, 0.5f);
+			camrec1.e.LookX2 = Mathf.Lerp(e.LookX, e.LookX2, 0.5f);
+			camrec1.e.LookY2 = Mathf.Lerp(e.LookY, e.LookY2, 0.5f);
+			camrec1.e.LookZ2 = Mathf.Lerp(e.LookZ, e.LookZ2, 0.5f);
+			camrec1.e.Tangent2 = Mathf.Lerp(e.Tangent, e.Tangent2, 0.5f);
+			camrec1.e.FocalLength2 = Mathf.Lerp(e.FocalLength, e.FocalLength2, 0.5f);
+			camrec1.e.unk10 = Mathf.Lerp(e.unk9, e.unk10, 0.5f);
+			camrec1.e.Amp2 = Mathf.Lerp(e.Amp, e.Amp2, 0.5f);
+			camrec1.e.Freq2 = Mathf.Lerp(e.Freq, e.Freq2, 0.5f);
+			camrec1.e.unk12 = Mathf.Lerp(e.unk11, e.unk12, 0.5f);
+			camrec camrec2 = new camrec();
+			camrec2.e = e.Clone();
+			camrec2.e.Time = Mathf.Lerp(e.Time, nexttime, 0.5f);
+			camrec2.e.unk5 = camrec1.e.unk6;
+			camrec2.e.EyeX = camrec1.e.EyeX2;
+			camrec2.e.EyeY = camrec1.e.EyeY2;
+			camrec2.e.EyeZ = camrec1.e.EyeZ2;
+			camrec2.e.LookX = camrec1.e.LookX2;
+			camrec2.e.LookY = camrec1.e.LookY2;
+			camrec2.e.LookZ = camrec1.e.LookZ2;
+			camrec2.e.Tangent = camrec1.e.Tangent2;
+			camrec2.e.FocalLength = camrec1.e.FocalLength2;
+			camrec2.e.unk9 = camrec1.e.unk10;
+			camrec2.e.Amp = camrec1.e.Amp2;
+			camrec2.e.Freq = camrec1.e.Freq2;
+			camrec2.e.unk11 = camrec1.e.unk12;
 			return (camrec1, camrec2);
 		}
 	}
@@ -257,105 +190,179 @@ public class NISLoader : MonoBehaviour
 	{
 		public float start;
 		public float end;
-        public camrec cam;
+		public List<camrec> cam = new List<camrec>();
+
+		int ind(ref float t)
+		{
+			float globaltime = Mathf.Lerp(start, end, t);
+			int index = 0;
+			for (int i = 0; i < cam.Count; i += 2)
+			{
+				if (globaltime >= cam[i].e.Time && (i + 2 >= cam.Count || globaltime <= cam[i + 2].e.Time))
+				{
+					index = i;
+					break;
+				}
+			}
+			camrec rec1 = cam[index];
+			camrec rec2 = cam[index + 1];
+			float startTime = rec1.e.Time;
+			float midTime = rec2.e.Time;
+			float endTime = index + 2 >= cam.Count ? end : cam[index + 2].e.Time;
+			if (globaltime < midTime)
+				t = Mathf.Lerp(0f, 0.5f, Mathf.InverseLerp(startTime, midTime, globaltime));
+			else
+				t = Mathf.Lerp(0.5f, 1f, Mathf.InverseLerp(midTime, endTime, globaltime));
+			return index;
+		}
 
 		public Vector3 GetEyePos(float t)
 		{
-			Vector3 p1, p2;
-            if (cam.e.GetType() == typeof(CameraTrackEntryMW))
-            {
-                CameraTrackEntryMW e = (CameraTrackEntryMW)cam.e;
-                p1 = new Vector3(e.EyeX, e.EyeY, e.EyeZ);
-                p2 = new Vector3(e.EyeX2, e.EyeY2, e.EyeZ2);
-            }
-            else
-                throw new Exception("Unsupported action");
-			return Vector3.Lerp(p1, p2, t);
+			Vector3 p1, p2, p3, p4;
+			if (cam.Count == 1)
+			{
+				p1 = new Vector3(cam[0].e.EyeX, cam[0].e.EyeY, cam[0].e.EyeZ);
+				p2 = new Vector3(cam[0].e.EyeX2, cam[0].e.EyeY2, cam[0].e.EyeZ2);
+				if (Main.CameraSmoothingEnabled)
+					return Vector3.Lerp(p1, p2, Mathf.SmoothStep(0f, 1f, t));
+				return Vector3.Lerp(p1, p2, t);
+			}
+			int i = ind(ref t);
+			p1 = new Vector3(cam[i].e.EyeX, cam[i].e.EyeY, cam[i].e.EyeZ);
+			p2 = new Vector3(cam[i].e.EyeX2, cam[i].e.EyeY2, cam[i].e.EyeZ2);
+			p3 = new Vector3(cam[i + 1].e.EyeX, cam[i + 1].e.EyeY, cam[i + 1].e.EyeZ);
+			p4 = new Vector3(cam[i + 1].e.EyeX2, cam[i + 1].e.EyeY2, cam[i + 1].e.EyeZ2);
+			return GetPoint(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
 		}
 
 		public Vector3 GetLookPos(float t)
 		{
-			Vector3 p1, p2;
-            if (cam.e.GetType() == typeof(CameraTrackEntryMW))
-            {
-                CameraTrackEntryMW e = (CameraTrackEntryMW)cam.e;
-                p1 = new Vector3(e.LookX, e.LookY, e.LookZ);
-                p2 = new Vector3(e.LookX2, e.LookY2, e.LookZ2);
-            }
-            else
-                throw new Exception("Unsupported action");
-            return Vector3.Lerp(p1, p2, t);
+			Vector3 p1, p2, p3, p4;
+			if (cam.Count == 1)
+			{
+				p1 = new Vector3(cam[0].e.LookX, cam[0].e.LookY, cam[0].e.LookZ);
+				p2 = new Vector3(cam[0].e.LookX2, cam[0].e.LookY2, cam[0].e.LookZ2);
+				if (Main.CameraSmoothingEnabled)
+					return Vector3.Lerp(p1, p2, Mathf.SmoothStep(0f, 1f, t));
+				return Vector3.Lerp(p1, p2, t);
+			}
+			int i = ind(ref t);
+			p1 = new Vector3(cam[i].e.LookX, cam[i].e.LookY, cam[i].e.LookZ);
+			p2 = new Vector3(cam[i].e.LookX2, cam[i].e.LookY2, cam[i].e.LookZ2);
+			p3 = new Vector3(cam[i + 1].e.LookX, cam[i + 1].e.LookY, cam[i + 1].e.LookZ);
+			p4 = new Vector3(cam[i + 1].e.LookX2, cam[i + 1].e.LookY2, cam[i + 1].e.LookZ2);
+			return GetPoint(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
 		}
 
 		public float GetAmp(float t)
 		{
-			float p1, p2;
-            if (cam.e.GetType() == typeof(CameraTrackEntryMW))
-            {
-                CameraTrackEntryMW e = (CameraTrackEntryMW)cam.e;
-                p1 = e.Amp;
-                p2 = e.Amp2;
-            }
-            else
-                throw new Exception("Unsupported action");
-            return Mathf.Lerp(p1, p2, t);
+			float p1, p2, p3, p4;
+			if (cam.Count == 1)
+			{
+				p1 = cam[0].e.Amp;
+				p2 = cam[0].e.Amp2;
+				if (Main.CameraSmoothingEnabled)
+					return Mathf.SmoothStep(p1, p2, t);
+				return Mathf.Lerp(p1, p2, t);
+			}
+			int i = ind(ref t);
+			p1 = cam[i].e.Amp;
+			p2 = cam[i].e.Amp2;
+			p3 = cam[i + 1].e.Amp;
+			p4 = cam[i + 1].e.Amp2;
+			return Lerp1dCurve(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
 		}
 		
 		public float GetFreq(float t)
 		{
-			float p1, p2;
-            if (cam.e.GetType() == typeof(CameraTrackEntryMW))
-            {
-                CameraTrackEntryMW e = (CameraTrackEntryMW)cam.e;
-                p1 = e.Freq;
-                p2 = e.Freq2;
-            }
-            else
-                throw new Exception("Unsupported action");
-            return Mathf.Lerp(p1, p2, t);
+			float p1, p2, p3, p4;
+			if (cam.Count == 1)
+			{
+				p1 = cam[0].e.Freq;
+				p2 = cam[0].e.Freq2;
+				if (Main.CameraSmoothingEnabled)
+					return Mathf.SmoothStep(p1, p2, t);
+				return Mathf.Lerp(p1, p2, t);
+			}
+			int i = ind(ref t);
+			p1 = cam[i].e.Freq;
+			p2 = cam[i].e.Freq2;
+			p3 = cam[i + 1].e.Freq;
+			p4 = cam[i + 1].e.Freq2;
+			return Lerp1dCurve(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
 		}
 		
 		public float GetTangent(float t)
 		{
-			float p1, p2;
-            if (cam.e.GetType() == typeof(CameraTrackEntryMW))
-            {
-                CameraTrackEntryMW e = (CameraTrackEntryMW)cam.e;
-                p1 = e.Tangent;
-                p2 = e.Tangent2;
-            }
-            else
-                throw new Exception("Unsupported action");
-            return Mathf.Lerp(p1, p2, t);
+			float p1, p2, p3, p4;
+			if (cam.Count == 1)
+			{
+				p1 = cam[0].e.Tangent;
+				p2 = cam[0].e.Tangent2;
+				if (Main.CameraSmoothingEnabled)
+					return Mathf.SmoothStep(p1, p2, t);
+				return Mathf.Lerp(p1, p2, t);
+			}
+			int i = ind(ref t);
+			p1 = cam[i].e.Tangent;
+			p2 = cam[i].e.Tangent2;
+			p3 = cam[i + 1].e.Tangent;
+			p4 = cam[i + 1].e.Tangent2;
+			return Lerp1dCurve(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
 		}
 		
 		public float GetFocalLength(float t)
 		{
-			float p1, p2;
-            if (cam.e.GetType() == typeof(CameraTrackEntryMW))
-            {
-                CameraTrackEntryMW e = (CameraTrackEntryMW)cam.e;
-                p1 = e.FocalLength;
-                p2 = e.FocalLength2;
-            }
-            else
-                throw new Exception("Unsupported action");
-            return Mathf.Lerp(p1, p2, t);
+			float p1, p2, p3, p4;
+			if (cam.Count == 1)
+			{
+				p1 = cam[0].e.FocalLength;
+				p2 = cam[0].e.FocalLength2;
+				if (Main.CameraSmoothingEnabled)
+					return Mathf.SmoothStep(p1, p2, t);
+				return Mathf.Lerp(p1, p2, t);
+			}
+			int i = ind(ref t);
+			p1 = cam[i].e.FocalLength;
+			p2 = cam[i].e.FocalLength2;
+			p3 = cam[i + 1].e.FocalLength;
+			p4 = cam[i + 1].e.FocalLength2;
+			return Lerp1dCurve(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
 		}
 
         public float GetTimeScale(float t) // todo add to cxmw
         {
-            float p1, p2;
-            if (cam.e.GetType() == typeof(CameraTrackEntryMW))
+            float p1, p2, p3, p4;
+            if (cam.Count == 1)
             {
-                CameraTrackEntryMW e = (CameraTrackEntryMW)cam.e;
-                p1 = e.unk13[4];
-                p2 = e.unk13[5];
+                p1 = cam[0].e.unk13[4];
+                p2 = cam[0].e.unk13[5];
+                if (Main.CameraSmoothingEnabled)
+                    return Mathf.SmoothStep(p1, p2, t);
+                return Mathf.Lerp(p1, p2, t);
             }
-            else
-                throw new Exception("Unsupported action");
-            return Mathf.Lerp(p1, p2, t);
+            int i = ind(ref t);
+            p1 = cam[i].e.unk13[4];
+            p2 = cam[i].e.unk13[5];
+            p3 = cam[i + 1].e.unk13[4];
+            p4 = cam[i + 1].e.unk13[5];
+            return Lerp1dCurve(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
         }
+
+        Vector3 GetPoint(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t) {
+			t = Mathf.Clamp01(t);
+			float oneMinusT = 1f - t;
+			return
+				oneMinusT * oneMinusT * oneMinusT * p0 +
+				3f * oneMinusT * oneMinusT * t * p1 +
+				3f * oneMinusT * t * t * p2 +
+				t * t * t * p3;
+		}
+		
+		float Lerp1dCurve(float a, float b, float c, float d, float t)
+		{
+			return a * Mathf.Pow(1f - t, 3) + 3f * b * Mathf.Pow(1f - t, 2) * t + 3f * c * (1f - t) * Mathf.Pow(t, 2) + d * Mathf.Pow(t, 3);
+		}
 	}
 
 	private Vector3 startpos;
@@ -423,24 +430,32 @@ public class NISLoader : MonoBehaviour
 
 	public static void ApplyCameraMovement(CameraSpline spline, float progression, float t, Transform player_car, Camera target, Transform debugFocus, bool cambeingedited)
 	{
-		camrec rec = spline.cam;
+		camrec rec = spline.cam[0];
 		float f = spline.end;
+		for (int i = 0; i < spline.cam.Count; i++)
+		{
+			if (progression >= spline.cam[i].e.Time)
+			{
+				f = i < spline.cam.Count - 1 ? spline.cam[i + 1].e.Time : spline.end;
+				if (progression > f)
+					continue;
+				rec = spline.cam[i];
+				break;
+			}
+		}
 		progression = Mathf.InverseLerp(spline.start, spline.end, progression);
 		if (!cambeingedited)
 		{
 			Vector3 eyepos = spline.GetEyePos(progression);
 			Vector3 lookatpos = spline.GetLookPos(progression);
-            if (rec.e.GetType() == typeof(CameraTrackEntryMW))
-            {
-                switch (((CameraTrackEntryMW)rec.e).attributes[4])
-                {
-                    case 0x00:
-                        // todo add this to CXMW
-                        eyepos = player_car.position + Quaternion.Euler(0f, -90f + player_car.eulerAngles.y, 0f) * eyepos;
-                        lookatpos = player_car.position + Quaternion.Euler(0f, -90f + player_car.eulerAngles.y, 0f) * lookatpos;
-                        break;
-                }
-            }
+			switch (rec.e.attributes[4])
+			{
+				case 0x00:
+					// todo add this to CXMW
+					eyepos = player_car.position + Quaternion.Euler(0f, -90f + player_car.eulerAngles.y, 0f) * eyepos;
+					lookatpos = player_car.position + Quaternion.Euler(0f, -90f + player_car.eulerAngles.y, 0f) * lookatpos;
+					break;
+			}
 			target.transform.position = eyepos;
 			target.transform.LookAt(lookatpos);
 			debugFocus.position = lookatpos;
@@ -472,21 +487,36 @@ public class NISLoader : MonoBehaviour
 	{
 		List<CameraSpline> splines = new List<CameraSpline>();
 		splines.Add(new CameraSpline());
-        splines[0].cam = rec[0];
-        if (rec[0].e.GetType() == typeof(CameraTrackEntryMW))
-        {
-            splines[0].start = ((CameraTrackEntryMW)rec[0].e).Time;
-            splines[0].end = rec.Count > 1 ? ((CameraTrackEntryMW)rec[1].e).Time : 1f;
-            for (int i = 1; i < rec.Count; i++)
-            {
-                splines.Add(new CameraSpline());
-                splines[splines.Count - 1].start = ((CameraTrackEntryMW)rec[i].e).Time;
-                splines[splines.Count - 1].end = i < rec.Count - 1 ? ((CameraTrackEntryMW)rec[i + 1].e).Time : 1f;
-                splines[splines.Count - 1].cam = rec[i];
-            }
-        }
-        else
-            throw new Exception("Not supported yet");
+		splines[0].cam.Add(rec[0]);
+		splines[0].start = rec[0].e.Time;
+		splines[0].end = rec.Count > 1 ? rec[1].e.Time : 1f;
+		camrec laste;
+		for (int i = 1; i < rec.Count; i++)
+		{
+			laste = splines[splines.Count - 1].cam[splines[splines.Count - 1].cam.Count - 1];
+			if (new Vector3(laste.e.EyeX2, laste.e.EyeY2, laste.e.EyeZ2) != new Vector3(rec[i].e.EyeX, rec[i].e.EyeY, rec[i].e.EyeZ) || !Main.CameraSmoothingEnabled)
+			{
+				if (splines[splines.Count - 1].cam.Count > 1 && splines[splines.Count - 1].cam.Count % 2 != 0)
+				{
+					(camrec, camrec) rpl = laste.SplitInTwo(splines[splines.Count - 1].end);
+					splines[splines.Count - 1].cam[splines[splines.Count - 1].cam.Count - 1] = rpl.Item1;
+					splines[splines.Count - 1].cam.Add(rpl.Item2);
+				}
+				splines.Add(new CameraSpline());
+				splines[splines.Count - 1].start = rec[i].e.Time;
+				splines[splines.Count - 1].end = i < rec.Count - 1 ? rec[i + 1].e.Time : 1f;
+			} else {
+				splines[splines.Count - 1].start = Mathf.Min(splines[splines.Count - 1].start, rec[i].e.Time);
+				splines[splines.Count - 1].end = Mathf.Max(splines[splines.Count - 1].end, i < rec.Count - 1 ? rec[i + 1].e.Time : 1f);
+			}
+			splines[splines.Count - 1].cam.Add(rec[i]);
+		}
+		if (splines[splines.Count - 1].cam.Count > 1 && splines[splines.Count - 1].cam.Count % 2 != 0)
+		{
+			(camrec, camrec) rpl = splines[splines.Count - 1].cam[splines[splines.Count - 1].cam.Count - 1].SplitInTwo(splines[splines.Count - 1].end);
+			splines[splines.Count - 1].cam[splines[splines.Count - 1].cam.Count - 1] = rpl.Item1;
+			splines[splines.Count - 1].cam.Add(rpl.Item2);
+		}
 		return splines;
 	}
 
@@ -869,11 +899,9 @@ public class NISLoader : MonoBehaviour
 				i += 4;
 				SceneInfo = (NisScene) CoordDebug.RawDeserialize(bytes, i, typeof(NisScene));
 				i += Marshal.SizeOf(typeof(NisScene));
-                // todo add to CXMW
-                //i += 8;
-                if (bytes[i] == 0x00)
-                    i += 4;
-                DescriptionOffset = i;
+				// todo add to CXMW
+				//i += 8;
+				DescriptionOffset = i;
 				SceneDescription = TakeString(bytes, i);
 				i += SceneDescription.Length + 1;
 				while (i % 4 != 0)
@@ -886,8 +914,7 @@ public class NISLoader : MonoBehaviour
 				if (string.IsNullOrEmpty(SceneDescription) || SceneDescription.Length <= 4)
 				{
 					DescriptionOffset = 0; // playing safe here
-                    int off = i - 5 * 4;
-					SceneDescription = TakeString(bytes, off);
+					SceneDescription = TakeString(bytes, i - 5 * 4);
 				}
 				//i += 4;
 				//size = BitConverter.ToInt32(bytes, i);
@@ -1316,37 +1343,32 @@ public class NISLoader : MonoBehaviour
 		return output;
 	}
 
-	public static (int, List<(CameraTrackHeader, Object[])>) LoadCameraTrack(string nisname, string gamepath, bool fullpath = false)
+	public static (int, List<(CameraTrackHeader, CameraTrackEntry[])>) LoadCameraTrack(string nisname, string gamepath, bool fullpath = false)
 	{
 		return LookupCamera(gamepath, BinHash(nisname), fullpath);
 	}
 
-	public static (int, List<(CameraTrackHeader, Object[])>) LookupCamera(string gamepath, uint NISHashNeeded, bool fullpath = false)
+	public static (int, List<(CameraTrackHeader, CameraTrackEntry[])>) LookupCamera(string gamepath, uint NISHashNeeded, bool fullpath = false)
 	{
 		byte[] f;
         if (fullpath)
             f = File.ReadAllBytes(gamepath);
         else
         {
-            string path = "";
-            foreach (string _path in Main.camtrackpaths)
-            {
-                if (File.Exists(gamepath + _path))
-                    path = _path;
-                else if (File.Exists(gamepath + _path.ToUpper()))
-                    path = _path.ToUpper();
-                if (path != null)
-                    break;
-            }
-            if (path == "")
-                return (0, new List<(CameraTrackHeader, Object[])>());
-            f = File.ReadAllBytes(gamepath + path);
+            string path = "/GLOBAL/InGameB.lzc";
+            if (File.Exists(gamepath + path))
+                f = File.ReadAllBytes(gamepath + path);
+            else if (File.Exists(gamepath + path.ToUpper()))
+                f = File.ReadAllBytes(gamepath + path.ToUpper());
+            else
+                return (0, new List<(CameraTrackHeader, CameraTrackEntry[])>());
         }
 		f = DecompressJZC(f);
 		int offset = 0;
 		int CameraTrackHeader_size = Marshal.SizeOf(typeof(CameraTrackHeader));
+		int CameraTrackEntry_size = Marshal.SizeOf(typeof(CameraTrackEntry));
 		int idd = 0;
-		List<(CameraTrackHeader, Object[])> output = new List<(CameraTrackHeader, Object[])>();
+		List<(CameraTrackHeader, CameraTrackEntry[])> output = new List<(CameraTrackHeader, CameraTrackEntry[])>();
 		int _offset = 0;
         int size = 0;
         SizeOffset = 0;
@@ -1398,29 +1420,15 @@ public class NISLoader : MonoBehaviour
 					i += 4;
 					int count = BitConverter.ToInt32(f, i); // todo add to CXMW
                     i += 4;
-                    int game = 0;
 					for (int num = 0; num < count; num++) // todo add to CXMW
 					{
 						CameraTrackHeader header = (CameraTrackHeader) CoordDebug.RawDeserialize(f, i, typeof(CameraTrackHeader));
-                        if (header.Duration == 0f && header.DurationCarbon != 0f) {
-                            header.Duration = header.DurationCarbon;
-                            game = 1;
-                        }
 						i += CameraTrackHeader_size;
-                        Object[] entries = new Object[header.entryCount];
+						CameraTrackEntry[] entries = new CameraTrackEntry[header.entryCount];
 						for (int entryNum = 0; entryNum < header.entryCount; entryNum++)
 						{
-                            switch (game)
-                            {
-                                case 0:
-                                    entries[entryNum] = CoordDebug.RawDeserialize(f, i, typeof(CameraTrackEntryMW));
-                                    i += Marshal.SizeOf(typeof(CameraTrackEntryMW));
-                                    break;
-                                case 1:
-                                    entries[entryNum] = CoordDebug.RawDeserialize(f, i, typeof(CameraTrackEntryCarbon));
-                                    i += Marshal.SizeOf(typeof(CameraTrackEntryCarbon));
-                                    break;
-                            }
+							entries[entryNum] = (CameraTrackEntry) CoordDebug.RawDeserialize(f, i, typeof(CameraTrackEntry));
+							i += CameraTrackEntry_size;
 						}
 
 						output.Add((header, entries));
