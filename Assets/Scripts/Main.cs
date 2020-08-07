@@ -3453,11 +3453,22 @@ public class Main : MonoBehaviour
                     chunk.AddRange(BitConverter.GetBytes(cameratrack.Count));
                     for (int i = 0; i < cameratrack.Count; i++)
                     {
-                        var hh = cameratrack[i].Item1;
+                        var hh = cameratrack[i].Item1.Clone();
+                        if (hh.Duration == hh.DurationCarbon)
+                        {
+                            hh.Duration = 0f;
+                        }
                         hh.entryCount = (short)cameratrack[i].Item2.Length;
                         chunk.AddRange(CoordDebug.RawSerialize(hh));
                         for (int j = 0; j < cameratrack[i].Item2.Length; j++)
-                            chunk.AddRange(CoordDebug.RawSerialize(cameratrack[i].Item2[j]));
+                        {
+                            switch (cameratrack[i].Item2[j].type)
+                            {
+                                case 0:
+                                    chunk.AddRange(CoordDebug.RawSerialize(cameratrack[i].Item2[j].obj0));
+                                    break;
+                            }
+                        }
                     }
 
                     bool updlistpls = false;
@@ -3715,13 +3726,7 @@ public class Main : MonoBehaviour
             UpdCameraTrackPreview();
     }
 
-    public static bool CameraSmoothingEnabled = true;
-
-    public void UpdateCameraSmoothing(bool enable)
-    {
-        CameraSmoothingEnabled = enable;
-        GenCameraSplines();
-    }
+    public static bool CameraSmoothingEnabled = false;
 
     public void RenameCameraTrack()
     {
@@ -3778,7 +3783,14 @@ public class Main : MonoBehaviour
         header.entryCount = cameratrack[curcam].Item1.entryCount;
         NISLoader.CameraTrackEntry[] entries = new NISLoader.CameraTrackEntry[cameratrack[curcam].Item2.Length];
         for (int i = 0; i < entries.Length; i++)
-            entries[i] = cameratrack[curcam].Item2[i].Clone();
+        {
+            switch (cameratrack[curcam].Item2[i].type)
+            {
+                case 0:
+                    entries[i] = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[i].obj0.Clone());
+                    break;
+            }
+        }
         cameratrack.Add((header, entries));
         Dropdown.OptionData opt = new Dropdown.OptionData();
         opt.text = header.TrackName;
@@ -3833,7 +3845,12 @@ public class Main : MonoBehaviour
         switch (num)
         {
             case 0:
-                old_entry = cameratrack[curcam].Item2[cursegment].Clone();
+                switch (cameratrack[curcam].Item2[cursegment].type)
+                {
+                    default:
+                        old_entry = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment].obj0.Clone());
+                        break;
+                }
                 rec = new NISLoader.camrec(cameratrack[curcam].Item2[cursegment]);
                 split_result = rec.SplitInTwo(cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time : 1f);
                 entries = cameratrack[curcam].Item2.ToList();
@@ -3848,8 +3865,13 @@ public class Main : MonoBehaviour
                 break;
             case 1:
                 if (cursegment == 0) return;
-                old_entry = cameratrack[curcam].Item2[cursegment - 1].Clone();
-                old_entry2 = cameratrack[curcam].Item2[cursegment].Clone();
+                switch (cameratrack[curcam].Item2[cursegment - 1].type)
+                {
+                    default:
+                        old_entry = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment - 1].obj0.Clone());
+                        old_entry2 = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment].obj0.Clone());
+                        break;
+                }
                 base_entry = cameratrack[curcam].Item2[cursegment - 1];
                 cur_entry = cameratrack[curcam].Item2[cursegment];
                 base_entry.unk6 = cur_entry.unk6;
@@ -3877,8 +3899,13 @@ public class Main : MonoBehaviour
                 break;
             case 2:
                 if (cursegment == cameratrack[curcam].Item2.Length - 1) return;
-                old_entry = cameratrack[curcam].Item2[cursegment].Clone();
-                old_entry2 = cameratrack[curcam].Item2[cursegment + 1].Clone();
+                switch (cameratrack[curcam].Item2[cursegment].type)
+                {
+                    default:
+                        old_entry = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment].obj0.Clone());
+                        old_entry2 = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment + 1].obj0.Clone());
+                        break;
+                }
                 base_entry = cameratrack[curcam].Item2[cursegment];
                 cur_entry = cameratrack[curcam].Item2[cursegment + 1];
                 base_entry.unk6 = cur_entry.unk6;
@@ -3905,7 +3932,12 @@ public class Main : MonoBehaviour
                     AddToHistoryCam(new MergeSegmentRight(curcam, cursegment + 1, timeline, old_entry, old_entry2));
                 break;
             case 3:
-                old_entry = cameratrack[curcam].Item2[cursegment].Clone();
+                switch (cameratrack[curcam].Item2[cursegment].type)
+                {
+                    default:
+                        old_entry = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment].obj0.Clone());
+                        break;
+                }
                 rec = new NISLoader.camrec(cameratrack[curcam].Item2[cursegment]);
                 split_result = rec.SplitInTwo(cursegment < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[cursegment + 1].Time : 1f);
                 base_entry = split_result.Item2.e;
@@ -3947,7 +3979,12 @@ public class Main : MonoBehaviour
                 break;
             case 4:
                 if (cameratrack[curcam].Item2.Length <= 1) return;
-                old_entry = cameratrack[curcam].Item2[cursegment].Clone();
+                switch (cameratrack[curcam].Item2[cursegment].type)
+                {
+                    default:
+                        old_entry = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment].obj0.Clone());
+                        break;
+                }
                 entries = cameratrack[curcam].Item2.ToList();
                 entries.RemoveAt(cursegment);
                 float old_time = 0f;
@@ -4139,7 +4176,13 @@ public class Main : MonoBehaviour
         if (playing || !allow_changes) return;
         if (blockupdcall) return;
         bool changed = false;
-        NISLoader.CameraTrackEntry old_ = cameratrack[curcam].Item2[cursegment].Clone();
+        NISLoader.CameraTrackEntry old_;
+        switch (cameratrack[curcam].Item2[cursegment].type)
+        {
+            default:
+                old_ = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment].obj0.Clone());
+                break;
+        }
         float old;
         switch (cameraeditcurtab)
         {
@@ -4345,7 +4388,13 @@ public class Main : MonoBehaviour
         GenCameraSplines();
         if (changed && !RealtimeCameraEditActive)
         {
-            NISLoader.CameraTrackEntry new_ = cameratrack[curcam].Item2[cursegment].Clone();
+            NISLoader.CameraTrackEntry new_;
+            switch (cameratrack[curcam].Item2[cursegment].type)
+            {
+                default:
+                    new_ = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment].obj0.Clone());
+                    break;
+            }
             AddToHistoryCam(new EditCameraSegment(curcam, cursegment, old_, new_));
         }
     }
@@ -4355,7 +4404,13 @@ public class Main : MonoBehaviour
         if (playing || !allow_changes) return;
         if (blockupdcall) return;
         bool changed = false;
-        NISLoader.CameraTrackEntry old_ = cameratrack[curcam].Item2[cursegment].Clone();
+        NISLoader.CameraTrackEntry old_;
+        switch (cameratrack[curcam].Item2[cursegment].type)
+        {
+            default:
+                old_ = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment].obj0.Clone());
+                break;
+        }
         byte old;
         for (int i = 0; i < 12; i++)
         {
@@ -4393,7 +4448,13 @@ public class Main : MonoBehaviour
         GenCameraSplines();
         if (changed)
         {
-            NISLoader.CameraTrackEntry new_ = cameratrack[curcam].Item2[cursegment].Clone();
+            NISLoader.CameraTrackEntry new_;
+            switch (cameratrack[curcam].Item2[cursegment].type)
+            {
+                default:
+                    new_ = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment].obj0.Clone());
+                    break;
+            }
             AddToHistoryCam(new EditCameraSegment(curcam, cursegment, old_, new_));
         }
     }
@@ -4416,8 +4477,13 @@ public class Main : MonoBehaviour
         if (RealtimeCameraEditActive) {
             playing = false;
 
-            CameraEditOld = cameratrack[curcam].Item2[cursegment].Clone();
-            
+            switch (cameratrack[curcam].Item2[cursegment].type)
+            {
+                default:
+                    CameraEditOld = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment].obj0.Clone());
+                    break;
+            }
+
             Vector3 eyepos;
             Vector3 lookatpos;
             if (cameraeditcurtab == 0)
@@ -4452,7 +4518,13 @@ public class Main : MonoBehaviour
         else
         {
             gizmo2.RemoveTarget(FocusSphere);
-            NISLoader.CameraTrackEntry new_ = cameratrack[curcam].Item2[cursegment].Clone();
+            NISLoader.CameraTrackEntry new_;
+            switch (cameratrack[curcam].Item2[cursegment].type)
+            {
+                default:
+                    new_ = new NISLoader.CameraTrackEntry(cameratrack[curcam].Item2[cursegment].obj0.Clone());
+                    break;
+            }
             AddToHistoryCam(new EditCameraSegment(curcam, cursegment, CameraEditOld, new_));
             
         }

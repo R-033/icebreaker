@@ -25,9 +25,10 @@ public class NISLoader : MonoBehaviour
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public struct CameraTrackHeader
 	{
-		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)]
 		public byte[] Unknown1;
 
+		public float DurationCarbon;
 		public float Duration;
 		public short entryCount;
 		public byte zero;
@@ -45,9 +46,633 @@ public class NISLoader : MonoBehaviour
 		}
 	}
 
+	public class CameraTrackEntry
+	{
+		public CameraTrackEntry(System.Object obj)
+		{
+			if (obj.GetType() == typeof(CameraTrackEntryMW))
+			{
+				type = 0;
+				obj0 = (CameraTrackEntryMW) obj;
+			}
+		}
+
+		public int type = -1;
+		public CameraTrackEntryMW obj0;
+
+		public byte[] attributes
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.attributes = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.attributes;
+				}
+			}
+		}
+		
+		public byte[] unk13
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.unk13 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.unk13;
+				}
+			}
+		}
+		
+		public float Time
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.Time = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.Time;
+				}
+			}
+		}
+		
+		public float unk5
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.Drift = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.Drift;
+				}
+			}
+		}
+		
+		public float unk6
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.Drift2 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.Drift2;
+				}
+			}
+		}
+		
+		public float EyeX
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.EyeX = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.EyeX;
+				}
+			}
+		}
+		
+		public float EyeZ
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.EyeZ = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.EyeZ;
+				}
+			}
+		}
+		
+		public float EyeY
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.EyeY = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.EyeY;
+				}
+			}
+		}
+		
+		public float EyeX2
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.EyeX2 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.EyeX2;
+				}
+			}
+		}
+		
+		public float EyeZ2
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.EyeZ2 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.EyeZ2;
+				}
+			}
+		}
+		
+		public float EyeY2
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.EyeY2 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.EyeY2;
+				}
+			}
+		}
+		
+		public float LookX
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.LookX = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.LookX;
+				}
+			}
+		}
+		
+		public float LookZ
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.LookZ = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.LookZ;
+				}
+			}
+		}
+		
+		public float LookY
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.LookY = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.LookY;
+				}
+			}
+		}
+		
+		public float LookX2
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.LookX2 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.LookX2;
+				}
+			}
+		}
+		
+		public float LookZ2
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.LookZ2 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.LookZ2;
+				}
+			}
+		}
+		
+		public float LookY2
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.LookY2 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.LookY2;
+				}
+			}
+		}
+		
+		public float Tangent
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.Tangent = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.Tangent;
+				}
+			}
+		}
+		
+		public float Tangent2
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.Tangent2 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.Tangent2;
+				}
+			}
+		}
+		
+		public float FocalLength
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.FocalLength = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.FocalLength;
+				}
+			}
+		}
+		
+		public float FocalLength2
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.FocalLength2 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.FocalLength2;
+				}
+			}
+		}
+		
+		public float Amp
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.Amp = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.Amp;
+				}
+			}
+		}
+		
+		public float Amp2
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.Amp2 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.Amp2;
+				}
+			}
+		}
+		
+		public float Freq
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.Freq = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.Freq;
+				}
+			}
+		}
+		
+		public float Freq2
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.Freq2 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.Freq2;
+				}
+			}
+		}
+		
+		public float unk9
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.unk9 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.unk9;
+				}
+			}
+		}
+		
+		public float unk10
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.unk10 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.unk10;
+				}
+			}
+		}
+		
+		public float unk11
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.unk11 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.unk11;
+				}
+			}
+		}
+		
+		public float unk12
+		{
+			set
+			{
+				switch (type)
+				{
+					case 0:
+						obj0.unk12 = value;
+						break;
+				}
+			}
+			get
+			{
+				switch (type)
+				{
+					default:
+						return obj0.unk12;
+				}
+			}
+		}
+	}
+
 	// 132 bytes
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
-	public struct CameraTrackEntry
+	public struct CameraTrackEntryMW
 	{
 		// 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15
 		// 0D-00-01-01 01-01-00-00 00-00-03-00 1F-BD-00-00
@@ -57,8 +682,8 @@ public class NISLoader : MonoBehaviour
 		public byte[] attributes;
 
 		public float Time;
-		public float unk5;
-		public float unk6;
+		public float Drift;
+		public float Drift2;
 		public float EyeX;
 		public float EyeZ;
 		public float EyeY;
@@ -87,9 +712,60 @@ public class NISLoader : MonoBehaviour
 		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
 		public byte[] unk13;
 
-		public CameraTrackEntry Clone() // todo add in cxmw
+		public CameraTrackEntryMW Clone() // todo add in cxmw
 		{
-			CameraTrackEntry clone = (CameraTrackEntry)MemberwiseClone();
+			CameraTrackEntryMW clone = (CameraTrackEntryMW)MemberwiseClone();
+			clone.attributes = new byte[16];
+			for (int i = 0; i < 16; i++)
+				clone.attributes[i] = attributes[i];
+			clone.unk13 = new byte[8];
+			for (int i = 0; i < 8; i++)
+				clone.unk13[i] = unk13[i];
+			return clone;
+		}
+	}
+	
+	// 132 bytes
+	[StructLayout(LayoutKind.Sequential, Pack = 1)]
+	public struct CameraTrackEntryCarbon
+	{
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+		public byte[] attributes;
+
+		public float Time;
+		public float Drift;
+		public float Drift2;
+		public float EyeX;
+		public float EyeZ;
+		public float EyeY;
+		public float EyeX2;
+		public float EyeZ2;
+		public float EyeY2;
+		public float LookX;
+		public float LookZ;
+		public float LookY;
+		public float LookX2;
+		public float LookZ2;
+		public float LookY2;
+		public float Tangent;
+		public float Tangent2;
+		public float FocalLength;
+		public float FocalLength2;
+		public float unk9;
+		public float unk10;
+		public float Amp;
+		public float Amp2;
+		public float Freq;
+		public float Freq2;
+		public float unk11;
+		public float unk12;
+
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+		public byte[] unk13;
+
+		public CameraTrackEntryCarbon Clone()
+		{
+			CameraTrackEntryCarbon clone = (CameraTrackEntryCarbon)MemberwiseClone();
 			clone.attributes = new byte[16];
 			for (int i = 0; i < 16; i++)
 				clone.attributes[i] = attributes[i];
@@ -120,7 +796,7 @@ public class NISLoader : MonoBehaviour
 		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
 		public byte[] unk;
 
-		[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 16)]
+		[MarshalAs(UnmanagedType.ByValTStr, SizeConst = 12)]
 		public string SeeulatorOverlayName;
 	}
 
@@ -139,7 +815,14 @@ public class NISLoader : MonoBehaviour
 		public (camrec, camrec) SplitInTwo(float nexttime)
 		{
 			camrec camrec1 = new camrec();
-			camrec1.e = e.Clone();
+			camrec camrec2 = new camrec();
+			switch (camrec1.e.type)
+			{
+				case 0:
+					camrec1.e = new CameraTrackEntry(e.obj0.Clone());
+					camrec2.e = new CameraTrackEntry(e.obj0.Clone());
+					break;
+			}
 			camrec1.e.unk6 = Mathf.Lerp(e.unk5, e.unk6, 0.5f);
 			camrec1.e.EyeX2 = Mathf.Lerp(e.EyeX, e.EyeX2, 0.5f);
 			camrec1.e.EyeY2 = Mathf.Lerp(e.EyeY, e.EyeY2, 0.5f);
@@ -153,8 +836,6 @@ public class NISLoader : MonoBehaviour
 			camrec1.e.Amp2 = Mathf.Lerp(e.Amp, e.Amp2, 0.5f);
 			camrec1.e.Freq2 = Mathf.Lerp(e.Freq, e.Freq2, 0.5f);
 			camrec1.e.unk12 = Mathf.Lerp(e.unk11, e.unk12, 0.5f);
-			camrec camrec2 = new camrec();
-			camrec2.e = e.Clone();
 			camrec2.e.Time = Mathf.Lerp(e.Time, nexttime, 0.5f);
 			camrec2.e.unk5 = camrec1.e.unk6;
 			camrec2.e.EyeX = camrec1.e.EyeX2;
@@ -901,6 +1582,8 @@ public class NISLoader : MonoBehaviour
 				i += Marshal.SizeOf(typeof(NisScene));
 				// todo add to CXMW
 				//i += 8;
+				if (bytes[i] == 0x00)
+					i += 4;
 				DescriptionOffset = i;
 				SceneDescription = TakeString(bytes, i);
 				i += SceneDescription.Length + 1;
@@ -1366,7 +2049,6 @@ public class NISLoader : MonoBehaviour
 		f = DecompressJZC(f);
 		int offset = 0;
 		int CameraTrackHeader_size = Marshal.SizeOf(typeof(CameraTrackHeader));
-		int CameraTrackEntry_size = Marshal.SizeOf(typeof(CameraTrackEntry));
 		int idd = 0;
 		List<(CameraTrackHeader, CameraTrackEntry[])> output = new List<(CameraTrackHeader, CameraTrackEntry[])>();
 		int _offset = 0;
@@ -1420,15 +2102,28 @@ public class NISLoader : MonoBehaviour
 					i += 4;
 					int count = BitConverter.ToInt32(f, i); // todo add to CXMW
                     i += 4;
+                    int gametype = 0;
 					for (int num = 0; num < count; num++) // todo add to CXMW
 					{
 						CameraTrackHeader header = (CameraTrackHeader) CoordDebug.RawDeserialize(f, i, typeof(CameraTrackHeader));
+						if (header.Duration == 0f && header.DurationCarbon != 0f)
+						{
+							header.Duration = header.DurationCarbon;
+							gametype = 1;
+						}
 						i += CameraTrackHeader_size;
 						CameraTrackEntry[] entries = new CameraTrackEntry[header.entryCount];
 						for (int entryNum = 0; entryNum < header.entryCount; entryNum++)
 						{
-							entries[entryNum] = (CameraTrackEntry) CoordDebug.RawDeserialize(f, i, typeof(CameraTrackEntry));
-							i += CameraTrackEntry_size;
+							switch (gametype)
+							{
+								case 0:
+									entries[entryNum] = new CameraTrackEntry((CameraTrackEntryMW) CoordDebug.RawDeserialize(f, i, typeof(CameraTrackEntryMW)));
+									i += Marshal.SizeOf(typeof(CameraTrackEntryMW));
+									break;
+								default:
+									throw new Exception("Camera animation format not supported");
+							}
 						}
 
 						output.Add((header, entries));
