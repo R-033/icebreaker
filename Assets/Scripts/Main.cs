@@ -1439,7 +1439,7 @@ public class Main : MonoBehaviour
                                     OverlayDebug.text = "Police overlay is shown";
                                     break;
                                 case 4:
-                                    OverlayDebug.text = "Screen is pitch black"; // todo add to cxmw
+                                    OverlayDebug.text = "Screen is pitch black";
                                     break;
                                 default:
                                     OverlayDebug.text = "Unknown overlay is shown (" + cameratrack[curcam].Item2[i].attributes[10].ToString("X") + ")";
@@ -2131,7 +2131,6 @@ public class Main : MonoBehaviour
                 {
                     NISLoader.Skeleton skeleton = null;
                     foreach (NISLoader.Skeleton s in skeletons)
-                        // todo add this to CXMW
                         if (s.animationName == animobj.ToUpper())
                         {
                             skeleton = s;

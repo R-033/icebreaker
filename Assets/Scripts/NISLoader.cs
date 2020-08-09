@@ -712,7 +712,7 @@ public class NISLoader : MonoBehaviour
 		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
 		public byte[] unk13;
 
-		public CameraTrackEntryMW Clone() // todo add in cxmw
+		public CameraTrackEntryMW Clone()
 		{
 			CameraTrackEntryMW clone = (CameraTrackEntryMW)MemberwiseClone();
 			clone.attributes = new byte[16];
@@ -792,7 +792,6 @@ public class NISLoader : MonoBehaviour
 		public int HaveCarAnimation;
 		public int VanishFrame;
 
-		// todo add to CXMW
 		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
 		public byte[] unk;
 
@@ -1011,7 +1010,7 @@ public class NISLoader : MonoBehaviour
 			return Lerp1dCurve(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
 		}
 
-        public float GetTimeScale(float t) // todo add to cxmw
+        public float GetTimeScale(float t)
         {
             float p1, p2, p3, p4;
             if (cam.Count == 1)
@@ -1132,7 +1131,6 @@ public class NISLoader : MonoBehaviour
 			switch (rec.e.attributes[4])
 			{
 				case 0x00:
-					// todo add this to CXMW
 					eyepos = player_car.position + Quaternion.Euler(0f, -90f + player_car.eulerAngles.y, 0f) * eyepos;
 					lookatpos = player_car.position + Quaternion.Euler(0f, -90f + player_car.eulerAngles.y, 0f) * lookatpos;
 					break;
@@ -1157,7 +1155,6 @@ public class NISLoader : MonoBehaviour
 			if (anim.delta != null)
 				apply(anim.delta.Length / 15f);
 			foreach (Animation child in anim.subAnimations)
-				// todo add this to CXMW
 				if (child.delta != null)
 					apply(child.delta.Length / 15f);
 		}
@@ -1297,7 +1294,6 @@ public class NISLoader : MonoBehaviour
 		public ushort unk2;
 		public ushort unk3;
 
-		// todo add to cxmw
 		public string GetObjectName()
 		{
 			string result = name;
@@ -1580,8 +1576,6 @@ public class NISLoader : MonoBehaviour
 				i += 4;
 				SceneInfo = (NisScene) CoordDebug.RawDeserialize(bytes, i, typeof(NisScene));
 				i += Marshal.SizeOf(typeof(NisScene));
-				// todo add to CXMW
-				//i += 8;
 				if (bytes[i] == 0x00)
 					i += 4;
 				DescriptionOffset = i;
@@ -1782,12 +1776,10 @@ public class NISLoader : MonoBehaviour
 		}
 		for (int i = 0; i < skeletons.Count; i++)
 		{
-			// todo add this to CXMW
 			if (i >= models.Count)
 				break;
 			skeletons[i].attachedMesh = models[i].Item1;
 			skeletons[i].attachedMaterials = models[i].Item2;
-			// todo add this to CXMW
 			skeletons[i].animationName = skeletons[i].attachedMesh.name.Substring(0, skeletons[i].attachedMesh.name.IndexOf("0"));
 		}
 		return (animations, skeletons);
@@ -1820,7 +1812,6 @@ public class NISLoader : MonoBehaviour
 			nodeOffset += 4;
 		}
 		anim.header = header;
-		// todo add to cxmw
 		float[][] result = new float[amount][];
 		float delta = 0f;
 		for (int i = 0; i < amount; i++)
@@ -2100,10 +2091,10 @@ public class NISLoader : MonoBehaviour
 					}
 
 					i += 4;
-					int count = BitConverter.ToInt32(f, i); // todo add to CXMW
+					int count = BitConverter.ToInt32(f, i);
                     i += 4;
                     int gametype = 0;
-					for (int num = 0; num < count; num++) // todo add to CXMW
+					for (int num = 0; num < count; num++)
 					{
 						CameraTrackHeader header = (CameraTrackHeader) CoordDebug.RawDeserialize(f, i, typeof(CameraTrackHeader));
 						if (header.Duration == 0f && header.DurationCarbon != 0f)
