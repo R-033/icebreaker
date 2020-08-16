@@ -1146,6 +1146,7 @@ public class NISLoader : MonoBehaviour
         Main.timescale = spline.GetTimeScale(progression) * 0.01f;
 	}
 
+	// todo add to cxmw
 	public static float CalculateNISDuration(List<Animation> anims)
 	{
 		float maxduration = 0f;
@@ -1153,10 +1154,10 @@ public class NISLoader : MonoBehaviour
 		foreach (Animation anim in anims)
 		{
 			if (anim.delta != null)
-				apply(anim.delta.Length / 15f);
+				apply((anim.delta.Length - 1) / 15f);
 			foreach (Animation child in anim.subAnimations)
 				if (child.delta != null)
-					apply(child.delta.Length / 15f);
+					apply((child.delta.Length - 1) / 15f);
 		}
 		return maxduration;
 	}
@@ -1557,8 +1558,53 @@ public class NISLoader : MonoBehaviour
 				start = i;
 				while (bytes[i] == 0x11 && bytes[i + 1] == 0x11 && bytes[i + 2] == 0x11 && bytes[i + 3] == 0x11)
 					i += 4;
-				// unknown info for now
-				// todo
+
+				int some_length = i + BitConverter.ToInt32(bytes, i) + 16;
+				
+				i += 16;
+				if (bytes[i] == 0x50 && bytes[i + 1] == 0x52 && bytes[i + 2] == 0x41 && bytes[i + 3] == 0x43)
+				{
+					i += 4;
+					int sym_count = BitConverter.ToInt32(bytes, i);
+					i += 4;
+					int op_count = BitConverter.ToInt32(bytes, i);
+					i += 4;
+					int prac_unk3 = BitConverter.ToInt32(bytes, i);
+					i += 4;
+
+					for (int num = 0; num < op_count; num++)
+					{
+						//int hash = BitConverter.ToInt32(bytes, i);
+						i += 4;
+						//int unk1 = BitConverter.ToInt32(bytes, i);
+						i += 4;
+						//int unk2 = BitConverter.ToInt32(bytes, i);
+						i += 4;
+						//int unk3 = BitConverter.ToInt32(bytes, i);
+						i += 4;
+					}
+
+					while (bytes[i] == 0xAA && bytes[i + 1] == 0xAA && bytes[i + 2] == 0xAA && bytes[i + 3] == 0xAA)
+						i += 4;
+
+					string[] syms = new string[sym_count];
+					for (int num = 0; num < sym_count; num++)
+					{
+						string str = TakeString(bytes, i);
+						i += str.Length + 1;
+						syms[num] = str;
+					}
+
+					while (i % 4 != 0)
+						i++;
+					while (bytes[i] == 0xAA && bytes[i + 1] == 0xAA && bytes[i + 2] == 0xAA && bytes[i + 3] == 0xAA)
+						i += 4;
+
+					
+
+				} else
+					Debug.LogError("PRAC chunk is missing");
+
 				i = start + size;
 				while (i % 4 != 0)
 					i--;
