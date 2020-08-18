@@ -1,6 +1,4 @@
-﻿// Hasher from https://github.com/LeoCodes21/NFS-ModTools
-
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System;
@@ -17,7 +15,6 @@ using Common;
 using Common.Geometry.Data;
 using Common.Textures.Data;
 
-[ExecuteAlways]
 public class NISLoader : MonoBehaviour
 {
 
@@ -39,8 +36,8 @@ public class NISLoader : MonoBehaviour
 		public CameraTrackHeader Clone()
 		{
 			CameraTrackHeader clone = (CameraTrackHeader)MemberwiseClone();
-			clone.Unknown1 = new byte[16];
-			for (int i = 0; i < 16; i++)
+			clone.Unknown1 = new byte[12];
+			for (int i = 0; i < 12; i++)
 				clone.Unknown1[i] = Unknown1[i];
 			return clone;
 		}

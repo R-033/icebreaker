@@ -8,6 +8,7 @@ using UnityEngine.UI;
 using SFB;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using ELFSharp.ELF;
 using ELFSharp.ELF.Sections;
 using RuntimeGizmos;
@@ -1168,9 +1169,9 @@ public class Main : MonoBehaviour
                                 }
                             }
                             dontUseHistory = true;
-                            AnimationAction(2);
                             AnimationAction(3);
                             AnimationAction(4);
+                            AnimationAction(5);
                             dontUseHistory = false;
                             AddToHistoryNIS(new InterpolateAll(currentlyEditingObject, new [] { EditingAnimation_t != null ? EditingAnimation_t.subAnimations[0] : null, EditingAnimation_q != null ? EditingAnimation_q.subAnimations[0] : null, EditingAnimation_s != null ? EditingAnimation_s.subAnimations[0] : null }, old_delta));
                             Debug.Log("Interpolated successfully");
@@ -1179,23 +1180,23 @@ public class Main : MonoBehaviour
                         {
                             if (Input.GetKeyDown(KeyCode.C))
                             {
-                                AnimationAction(5);
+                                AnimationAction(6);
                             }
                             else if (Input.GetKeyDown(KeyCode.V))
                             {
-                                AnimationAction(6);
+                                AnimationAction(7);
                             }
                             else if (Input.GetKeyDown(KeyCode.P))
                             {
-                                AnimationAction(2);
+                                AnimationAction(3);
                             }
                             else if (Input.GetKeyDown(KeyCode.R))
                             {
-                                AnimationAction(3);
+                                AnimationAction(4);
                             }
                             else if (Input.GetKeyDown(KeyCode.S))
                             {
-                                AnimationAction(4);
+                                AnimationAction(5);
                             }
                         }
                     }
@@ -1840,6 +1841,30 @@ public class Main : MonoBehaviour
     public RectTransform CameraTrackListImport;
     List<(NISLoader.CameraTrackHeader, NISLoader.CameraTrackEntry[])> ImportCamEntries;
     public Button ImpExpButton;
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    public struct ReplayFrame
+    {
+        public float rotX;
+        public float rotY;
+        public float rotZ;
+        public float rotW;
+        public float posX;
+        public float posY;
+        public float posZ;
+        public float unk1;
+        public float unk2;
+        public float unk3;
+        public float unk4;
+        public float unk5;
+        public float unk6;
+        public float unk7;
+        public float unk8;
+        public float unk9;
+        public float unkX;
+        public float unkY;
+        public float unkZ;
+    }
 
     public void ImportCameraTrack()
     {
@@ -2764,20 +2789,66 @@ public class Main : MonoBehaviour
         actionDropdown2.value = 0;
         ind--;
         int pos1, pos2;
-        ind += 2; // todo for now
         float[][] d;
         switch (ind)
         {
-            /*case 0:
-                // todo import replay
+            case 0:
+                string path = "/Users/henrytownsend/Desktop/repeater_save.bin";
+                NISLoader.Animation targetAnimPos = EditingAnimation_t.subAnimations[0];
+                NISLoader.Animation targetAnimRot = EditingAnimation_q.subAnimations[0];
+                int targetMin = animtabindex;
+                int targetMax = interpolation_start;
+                if (targetMin > targetMax)
+                {
+                    int temp = targetMin;
+                    targetMin = targetMax;
+                    targetMax = temp;
+                }
+
+                byte[] replayData = File.ReadAllBytes(path);
+
+                int offset = 0;
+                int deltaNum = BitConverter.ToInt32(replayData, offset);
+                offset += 4;
+                (float, ReplayFrame)[] source = new (float, ReplayFrame)[deltaNum];
+                for (int i = 0; i < deltaNum; i++)
+                {
+                    float t = BitConverter.ToSingle(replayData, offset);
+                    offset += 4;
+                    source[i] = (t, (ReplayFrame)CoordDebug.RawDeserialize(replayData, offset, typeof(ReplayFrame)));
+                    offset += Marshal.SizeOf(typeof(ReplayFrame));
+                }
+
+                int last = 0;
+                for (int i = targetMin; i <= targetMax; i++)
+                {
+                    float targetTime = (i - targetMin) * (1f / 15f);
+                    ReplayFrame result = source[last].Item2;
+                    for (int j = last; j < deltaNum; j++)
+                    {
+                        if (source[j].Item1 <= targetTime && (j >= deltaNum - 1 || source[j + 1].Item1 > targetTime))
+                        {
+                            result = source[j].Item2;
+                            last = j;
+                            break;
+                        }
+                    }
+                    if (i < targetAnimPos.delta.Length)
+                        targetAnimPos.delta[i] = new [] { result.posZ, -result.posX, result.posY };
+                    if (i < targetAnimRot.delta.Length)
+                    {
+                        Vector3 rot = new Quaternion(result.rotX, result.rotY, result.rotZ, result.rotW).eulerAngles;
+                        Quaternion res = Quaternion.Euler(rot.z, -rot.x, -rot.y);
+                        targetAnimRot.delta[i] = new[] {res.x, res.y, res.z, res.w};
+                    }
+                }
+                
+                Debug.Log("Imported replay successfully");
                 break;
             case 1:
-                // todo export replay
-                break;*/
-            case 2:
                 interpolation_start = animtabindex;
                 break;
-            case 3:
+            case 2:
                 pos1 = animtabindex;
                 pos2 = interpolation_start;
                 if (pos1 > pos2)
@@ -2819,7 +2890,7 @@ public class Main : MonoBehaviour
                     // todo bone interpolate
                 }
                 break;
-            case 4:
+            case 3:
                 pos1 = animtabindex;
                 pos2 = interpolation_start;
                 if (pos1 > pos2)
@@ -2861,7 +2932,7 @@ public class Main : MonoBehaviour
                     // todo bone interpolate
                 }
                 break;
-            case 5:
+            case 4:
                 pos1 = animtabindex;
                 pos2 = interpolation_start;
                 if (pos1 > pos2)
@@ -2903,7 +2974,7 @@ public class Main : MonoBehaviour
                     // todo bone interpolate
                 }
                 break;
-            case 6:
+            case 5:
                 if (RootSubEdit.activeSelf)
                 {
                     copied_values_transform = new string[RootValues.Length];
@@ -2917,7 +2988,7 @@ public class Main : MonoBehaviour
                     Debug.Log("Bone value copy is not implemented yet");
                 }
                 break;
-            case 7:
+            case 6:
                 if (RootSubEdit.activeSelf)
                 {
                     blockupdcall = true;
