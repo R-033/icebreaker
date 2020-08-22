@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Runtime.InteropServices;
@@ -14,6 +15,7 @@ using UnityEngine.Experimental.PlayerLoop;
 using Common;
 using Common.Geometry.Data;
 using Common.Textures.Data;
+using Debug = UnityEngine.Debug;
 
 public class NISLoader : MonoBehaviour
 {
@@ -1125,15 +1127,15 @@ public class NISLoader : MonoBehaviour
 		{
 			Vector3 eyepos = spline.GetEyePos(progression);
 			Vector3 lookatpos = spline.GetLookPos(progression);
-			switch (rec.e.attributes[4])
-			{
-				case 0x00:
-					eyepos = player_car.position + Quaternion.Euler(0f, -90f + player_car.eulerAngles.y, 0f) * eyepos;
-					lookatpos = player_car.position + Quaternion.Euler(0f, -90f + player_car.eulerAngles.y, 0f) * lookatpos;
-					break;
-			}
 			target.transform.position = eyepos;
 			target.transform.LookAt(lookatpos);
+			if (rec.e.attributes[4] == 0x00) // todo add to cxmw
+			{
+				player_car.Rotate(0f, -90f, 0f);
+				target.transform.position = player_car.TransformPoint(target.transform.position);
+				target.transform.rotation = player_car.rotation * target.transform.rotation;
+				player_car.Rotate(0f, 90f, 0f);
+			}
 			debugFocus.position = lookatpos;
 		}
 		float amp = spline.GetAmp(progression);

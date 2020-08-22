@@ -20,11 +20,11 @@ public class MaxCamera : MonoBehaviour
  
     private float xDeg = 0.0f;
     private float yDeg = 0.0f;
-    private float currentDistance;
+    public float currentDistance;
     private float desiredDistance;
     private Quaternion currentRotation;
     private Quaternion desiredRotation;
-    private Quaternion rotation;
+    public Quaternion rotation;
     private Vector3 position;
  
     void Start() { Init(); }

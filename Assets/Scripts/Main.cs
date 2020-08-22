@@ -47,7 +47,7 @@ public class Main : MonoBehaviour
     public GameObject CarPrefabOpponent;
     public GameObject CarPrefabCop;
     public GameObject FourByThree;
-    private Dictionary<string, Transform> ObjectsOnScene = new Dictionary<string, Transform>();
+    public Dictionary<string, Transform> ObjectsOnScene = new Dictionary<string, Transform>();
     public Transform SceneRoot;
     private bool updlimit;
     [HideInInspector] public int tabnum;
@@ -240,7 +240,7 @@ public class Main : MonoBehaviour
     }
 
     private float timeinsec;
-    private bool forceY = true;
+    public bool forceY = true;
 
     public void UpdateForceY(bool enable)
     {
@@ -907,6 +907,19 @@ public class Main : MonoBehaviour
             return "interpolate " + objname;
         }
     }
+    
+    public class ImportReplay : ChangeDeltaC
+    {
+        public ImportReplay(string _objname, NISLoader.Animation[] _anim, float[][][] _old_values) : base(_objname, _anim, _old_values)
+        {
+            selectobj = false;
+        }
+        
+        public override string ToString()
+        {
+            return "import replay into " + objname;
+        }
+    }
 
     List<HistoryEntry> historyAnimations = new List<HistoryEntry>();
     List<HistoryEntry> historyCamera = new List<HistoryEntry>();
@@ -1009,7 +1022,7 @@ public class Main : MonoBehaviour
     private float[][] old_delta;
     private NISLoader.Animation savedanim;
     private float old_ttt = -1;
-    private int animtabindex;
+    public int animtabindex;
 
     void Update()
     {
@@ -1676,8 +1689,9 @@ public class Main : MonoBehaviour
         WorldIsDisplayed = true;
         EnableWorldLoadingButton.SetActive(false);
         WorldChunksStreamer.Initialize();
-        GetComponent<WorldChunksStreamer>().RequestInitialNeededChunks();
-        StartCoroutine(GetComponent<WorldChunksStreamer>().ChunksAutoOnDemandLoaderCoroutine());
+        WorldChunksStreamer www = FindObjectOfType<WorldChunksStreamer>();
+        www.RequestInitialNeededChunks();
+        www.StartCoroutine(www.ChunksAutoOnDemandLoaderCoroutine());
     }
 
     void UpdateGameSelection()
@@ -2487,8 +2501,8 @@ public class Main : MonoBehaviour
 
     public Toggle TimelineLockToggle;
 
-    private string currentlyEditingObject;
-    private Transform currentlyEditingSubObject;
+    public string currentlyEditingObject;
+    public Transform currentlyEditingSubObject;
     public GameObject SubObjectlistMain;
     List<Transform> subobjs = new List<Transform>();
     public GameObject EditObjListMenu;
@@ -2783,6 +2797,72 @@ public class Main : MonoBehaviour
     public Dropdown actionDropdown2;
     private string[] copied_values_transform;
 
+    public GameObject ReplayFileSelect;
+    public InputField ReplayFileSelectField;
+
+    public void ReplayFileSelected()
+    {
+        if (!File.Exists(ReplayFileSelectField.text))
+            throw new Exception("This file does not exist");
+        byte[] replayData = File.ReadAllBytes(ReplayFileSelectField.text);
+        int offset = 0;
+        int deltaNum = BitConverter.ToInt32(replayData, offset);
+        offset += 4;
+        (float, ReplayFrame)[] source = new (float, ReplayFrame)[deltaNum];
+        for (int i = 0; i < deltaNum; i++)
+        {
+            float t = BitConverter.ToSingle(replayData, offset);
+            offset += 4;
+            source[i] = (t, (ReplayFrame)CoordDebug.RawDeserialize(replayData, offset, typeof(ReplayFrame)));
+            offset += Marshal.SizeOf(typeof(ReplayFrame));
+        }
+        int last = 0;
+        int curdelta = 0;
+        List<float[]> deltaPos = new List<float[]>();
+        List<float[]> deltaRot = new List<float[]>();
+        do
+        {
+            float targetTime = curdelta * (1f / 15f);
+            ReplayFrame result = source[last].Item2;
+            for (int j = last; j < deltaNum; j++)
+            {
+                if (source[j].Item1 <= targetTime && (j >= deltaNum - 1 || source[j + 1].Item1 > targetTime))
+                {
+                    result = source[j].Item2;
+                    last = j;
+                    break;
+                }
+            }
+
+            deltaPos.Add(new[] {result.posZ, -result.posX, result.posY});
+            Vector3 rot = new Quaternion(result.rotX, result.rotY, result.rotZ, result.rotW).eulerAngles;
+            Quaternion res = Quaternion.Euler(rot.z, -rot.x, -rot.y);
+            deltaRot.Add(new[] {res.x, res.y, res.z, res.w});
+            curdelta++;
+        } while (last < source.Length - 1);
+        imreplayscript.originalPosition = EditingAnimation_t;
+        imreplayscript.originalRotation = EditingAnimation_q;
+        imreplayscript.replayPosition = new NISLoader.Animation();
+        imreplayscript.replayPosition.name = imreplayscript.originalPosition.name;
+        imreplayscript.replayPosition.type = NISLoader.AnimType.ANIM_COMPOUND;
+        imreplayscript.replayPosition.subAnimations.Add(new NISLoader.Animation());
+        imreplayscript.replayPosition.subAnimations[0].delta = deltaPos.ToArray();
+        imreplayscript.replayRotation = new NISLoader.Animation();
+        imreplayscript.replayRotation.name = imreplayscript.originalRotation.name;
+        imreplayscript.replayRotation.type = NISLoader.AnimType.ANIM_COMPOUND;
+        imreplayscript.replayRotation.subAnimations.Add(new NISLoader.Animation());
+        imreplayscript.replayRotation.subAnimations[0].delta = deltaRot.ToArray();
+        imreplayscript.timeline.maxValue = deltaRot.Count - 1;
+        imreplayscript.min.maxValue = deltaRot.Count - 1;
+        imreplayscript.max.maxValue = deltaRot.Count - 1;
+        imreplayscript.timeline.value = (int)imreplayscript.max.maxValue / 2;
+        imreplayscript.min.value = 0;
+        imreplayscript.max.value = imreplayscript.max.maxValue;
+        ReplayFileSelect.SetActive(false);
+        gameObject.SetActive(false);
+        imreplayscript.gameObject.SetActive(true);
+    }
+
     public void AnimationAction(int ind)
     {
         if (ind == 0) return;
@@ -2793,57 +2873,18 @@ public class Main : MonoBehaviour
         switch (ind)
         {
             case 0:
-                string path = "/Users/henrytownsend/Desktop/repeater_save.bin";
-                NISLoader.Animation targetAnimPos = EditingAnimation_t.subAnimations[0];
-                NISLoader.Animation targetAnimRot = EditingAnimation_q.subAnimations[0];
-                int targetMin = animtabindex;
-                int targetMax = interpolation_start;
-                if (targetMin > targetMax)
+                if (EditingAnimation_t == null)
                 {
-                    int temp = targetMin;
-                    targetMin = targetMax;
-                    targetMax = temp;
+                    Debug.Log("You cannot import replay because this object does not have position animation");
+                    return;
                 }
-
-                byte[] replayData = File.ReadAllBytes(path);
-
-                int offset = 0;
-                int deltaNum = BitConverter.ToInt32(replayData, offset);
-                offset += 4;
-                (float, ReplayFrame)[] source = new (float, ReplayFrame)[deltaNum];
-                for (int i = 0; i < deltaNum; i++)
+                if (EditingAnimation_q == null)
                 {
-                    float t = BitConverter.ToSingle(replayData, offset);
-                    offset += 4;
-                    source[i] = (t, (ReplayFrame)CoordDebug.RawDeserialize(replayData, offset, typeof(ReplayFrame)));
-                    offset += Marshal.SizeOf(typeof(ReplayFrame));
+                    Debug.Log("You cannot import replay because this object does not have rotation animation");
+                    return;
                 }
-
-                int last = 0;
-                for (int i = targetMin; i <= targetMax; i++)
-                {
-                    float targetTime = (i - targetMin) * (1f / 15f);
-                    ReplayFrame result = source[last].Item2;
-                    for (int j = last; j < deltaNum; j++)
-                    {
-                        if (source[j].Item1 <= targetTime && (j >= deltaNum - 1 || source[j + 1].Item1 > targetTime))
-                        {
-                            result = source[j].Item2;
-                            last = j;
-                            break;
-                        }
-                    }
-                    if (i < targetAnimPos.delta.Length)
-                        targetAnimPos.delta[i] = new [] { result.posZ, -result.posX, result.posY };
-                    if (i < targetAnimRot.delta.Length)
-                    {
-                        Vector3 rot = new Quaternion(result.rotX, result.rotY, result.rotZ, result.rotW).eulerAngles;
-                        Quaternion res = Quaternion.Euler(rot.z, -rot.x, -rot.y);
-                        targetAnimRot.delta[i] = new[] {res.x, res.y, res.z, res.w};
-                    }
-                }
-                
-                Debug.Log("Imported replay successfully");
+                HelpButton(true);
+                ReplayFileSelect.SetActive(true);
                 break;
             case 1:
                 interpolation_start = animtabindex;
@@ -3688,6 +3729,8 @@ public class Main : MonoBehaviour
         AnimationsEditorObjectSelected(currentlyEditingObject);
         AddToHistoryNIS(new ChangeDeltaC(currentlyEditingObject, anims, old_delta));
         Debug.Log("Delta count changed");
+        float calcdur = NISLoader.CalculateNISDuration(this.anims);
+        NISProps[8].text = (int) Mathf.Floor(calcdur / 60f) + ":" + (calcdur % 60f).ToString("0.00").PadLeft(5, '0');
     }
  
     public static int ELFChunkSize;
@@ -3895,6 +3938,8 @@ public class Main : MonoBehaviour
     public Button RemoveCameraButton;
 
     public Dropdown actionDropdown;
+
+    public CropReplayUI imreplayscript;
 
     public void SegmentEditAction(int num)
     {
