@@ -1584,9 +1584,9 @@ public class Main : MonoBehaviour
             }
             for (int sk = 0; sk < skeletons.Count; sk++)
             {
-                try {
-                    NISLoader.ApplyBoneAnimation(skeletons[sk].bones, skeletonAnims[skeletons[sk].animationName], tabnum == 2 ? animtabindex : timeinsec, tabnum == 2);
-                } catch {}
+                //try {
+                    NISLoader.ApplyBoneAnimation(skeletons[sk].bones, skeletonAnims[skeletons[sk].animationName], tabnum == 2 ? animtabindex : timeinsec, tabnum == 2, ObjectsOnScene[skeletonAnims[skeletons[sk].animationName].GetObjectName()]);
+                //} catch {}
             }
         }
 
@@ -2481,18 +2481,21 @@ public class Main : MonoBehaviour
         NISLoader.Animation newAnimParent = new NISLoader.Animation();
         newAnimParent.name = ObjectNameField.text;
         newAnimParent.type = NISLoader.AnimType.ANIM_COMPOUND;
+        newAnimParent.checkSum = 0; // todo
         newAnimParent.subAnimations = new List<NISLoader.Animation>();
         newAnimParent.subAnimations.Add(new NISLoader.Animation());
         NISLoader.Animation newAnim = newAnimParent.subAnimations[0];
         if (ObjectNameField.text.EndsWith("_q"))
         {
             newAnim.type = NISLoader.AnimType.ANIM_DELTAQUAT;
+            newAnim.checkSum = 0; // todo
             newAnim.numDofs = 4;
             newAnim.quantBits = 0x10;
             newAnim.unk1 = 16;
         } else
         {
             newAnim.type = NISLoader.AnimType.ANIM_DELTALERP;
+            newAnim.checkSum = 0; // todo
             newAnim.numDofs = 3;
             newAnim.quantBits = 0x10;
             if (ObjectNameField.text.EndsWith("_t"))
@@ -3294,7 +3297,7 @@ public class Main : MonoBehaviour
                                         delta[delta.Count - 1][x] = Mathf.LerpUnclamped(delta.Count > 2 ? delta[delta.Count - 3][x] : 0f, delta.Count > 1 ? delta[delta.Count - 2][x] : 0f, 2f);
                                     if (anims[i].subAnimations[childNum].numDofs == 4)
                                     {
-                                        // rotation fix?
+                                        // rotation fix
                                         Vector3[] deltaeuler = new Vector3[delta.Count];
                                         for (int deltaNum = 0; deltaNum < delta.Count; deltaNum++)
                                             deltaeuler[deltaNum] = new Quaternion(delta[deltaNum][0], delta[deltaNum][1], delta[deltaNum][2], delta[deltaNum][3]).eulerAngles;
@@ -3395,19 +3398,19 @@ public class Main : MonoBehaviour
 
                                     animationChildMetaOffsets[animationChildOffsets.Count - 1][childNum] = animdata.Count;
                                     animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].subAnimations[childNum].type));
-                                    animdata.AddRange(BitConverter.GetBytes(NISLoader.checkSum));
+                                    animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].checkSum));
                                     switch (anims[i].subAnimations[childNum].type)
                                     {
                                         case NISLoader.AnimType.ANIM_DELTALERP:
                                             animdata.AddRange(BitConverter.GetBytes((uint)animationChildOffsets[animationChildOffsets.Count - 1][childNum]));
-                                            animdata.AddRange(BitConverter.GetBytes((ushort)(anims[i].subAnimations[childNum].delta.Length)));
+                                            animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].subAnimations[childNum].delta.Length));
                                             animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].unk1)); // not sure
                                             animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].unk2)); // not sure
                                             animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].unk3)); // not sure
                                             break;
                                         case NISLoader.AnimType.ANIM_DELTAQUAT:
                                             animdata.AddRange(BitConverter.GetBytes((uint)animationChildOffsets[animationChildOffsets.Count - 1][childNum]));
-                                            animdata.AddRange(BitConverter.GetBytes((ushort)(anims[i].subAnimations[childNum].delta.Length)));
+                                            animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].subAnimations[childNum].delta.Length));
                                             animdata.AddRange(BitConverter.GetBytes(anims[i].subAnimations[childNum].unk1)); // not sure
                                             break;
                                         default:
@@ -3416,10 +3419,10 @@ public class Main : MonoBehaviour
                                 }
                                 animationCompoundMetaOffsets.Add(animdata.Count);
                                 animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].type));
-                                animdata.AddRange(BitConverter.GetBytes(NISLoader.checkSum));
+                                animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].checkSum));
                                 animdata.AddRange(BitConverter.GetBytes((uint)animationCompoundOffsets.Last()));
                                 animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].subAnimations.Count));
-                                animdata.AddRange(BitConverter.GetBytes((ushort)(anims[i].subAnimations[0].delta.Length))); // todo more counts?
+                                animdata.AddRange(BitConverter.GetBytes((ushort)anims[i].subAnimations[0].delta.Length));
                                 for (int childNum = 0; childNum < anims[i].subAnimations.Count; childNum++)
                                 {
                                     animdata.AddRange(BitConverter.GetBytes((uint)animationChildMetaOffsets[animationChildOffsets.Count - 1][childNum]));

@@ -1081,13 +1081,23 @@ public class NISLoader : MonoBehaviour
 		return (anim.delta[start_pos], anim.delta[start_pos], 0f, false);
 	}
 
-	public static void ApplyBoneAnimation(Bone[] bones, Animation anim, float curTime, bool absoluteIndex)
+	public static void ApplyBoneAnimation(Bone[] bones, Animation anim, float curTime, bool absoluteIndex, Transform trans)
 	{
 		(float[], float[], float, bool) eval;
+		//(float[], float[], float, bool) eval_layout_pos;
+		//(float[], float[], float, bool) eval_layout_rot;
 		if (absoluteIndex)
-			eval = EvaluateAnimAbs(anim, curTime);
+		{
+			eval = EvaluateAnimAbs(anim.subAnimations[0], curTime);
+			//eval_layout_pos = EvaluateAnimAbs(anim.subAnimations[1], curTime);
+			//eval_layout_rot = EvaluateAnimAbs(anim.subAnimations[2], curTime);
+		}
 		else
-			eval = EvaluateAnim(anim, curTime);
+		{
+			eval = EvaluateAnim(anim.subAnimations[0], curTime);
+			//eval_layout_pos = EvaluateAnim(anim.subAnimations[1], curTime);
+			//eval_layout_rot = EvaluateAnim(anim.subAnimations[2], curTime);
+		}
 		if (eval.Item1 == null) return;
 		int offset;
 		for (int boneNum = 0; boneNum < bones.Length; boneNum++)
@@ -1097,6 +1107,8 @@ public class NISLoader : MonoBehaviour
 				break;
 			bones[boneNum].assignedTransform.localRotation = Quaternion.Lerp(new Quaternion(eval.Item1[offset], eval.Item1[offset + 1], eval.Item1[offset + 2], eval.Item1[offset + 3]), new Quaternion(eval.Item2[offset], eval.Item2[offset + 1], eval.Item2[offset + 2], eval.Item2[offset + 3]), eval.Item3);
 		}
+		//trans.position = Vector3.Lerp(new Vector3(eval_layout_pos.Item1[0], eval_layout_pos.Item1[2], eval_layout_pos.Item1[1]), new Vector3(eval_layout_pos.Item2[0], eval_layout_pos.Item2[2], eval_layout_pos.Item2[1]), eval_layout_pos.Item3);
+		//trans.rotation = Quaternion.Euler(0f, Mathf.Lerp(eval_layout_rot.Item1[0], eval_layout_rot.Item2[0], eval_layout_rot.Item3), 0f);
 	}
 
 	Dictionary<string, Transform> copCars = new Dictionary<string, Transform>();
@@ -1284,6 +1296,7 @@ public class NISLoader : MonoBehaviour
 	{
 		public string name;
 		public AnimType type;
+		public ushort checkSum;
 		public int offset;
 		public List<Animation> subAnimations = new List<Animation>();
 		public float[][] delta;
@@ -1423,7 +1436,6 @@ public class NISLoader : MonoBehaviour
 		bool modeldata;
 		byte[] data;
 		int offset;
-		//ushort checkSum;
 		Dictionary<int, string> bonenames = null;
 		Skeleton skeleton = null;
 		string bonename;
@@ -1816,7 +1828,7 @@ public class NISLoader : MonoBehaviour
 									anim.offset = offset;
 									ushort tt = BitConverter.ToUInt16(data, offset);
 									offset += 2;
-									checkSum = BitConverter.ToUInt16(data, offset);
+									anim.checkSum = BitConverter.ToUInt16(data, offset);
 									offset += 2;
 									anim.type = (AnimType) tt;
 									ParseAnimation(data, anim, animations, offset_ignore_list, ref offset);
@@ -1849,7 +1861,6 @@ public class NISLoader : MonoBehaviour
 	}
 
 	public static string toollibver = "";
-	public static ushort checkSum;
 
 	static void ParseAnimationNode(byte[] data, Animation anim, int nodeOffset, int amount, bool reversed_order = false)
 	{
@@ -1906,9 +1917,6 @@ public class NISLoader : MonoBehaviour
 
 	static void ParseAnimation(byte[] data, Animation anim, List<Animation> animations, List<int> offset_ignore_list, ref int offset)
 	{
-		//int dataoffset;
-		//int unk;
-		ushort count;
 		switch (anim.type)
 		{
 			case AnimType.ANIM_DELTALERP:
@@ -1941,7 +1949,7 @@ public class NISLoader : MonoBehaviour
 				offset += 4;
 				int childCount = Convert.ToInt32(BitConverter.ToUInt16(data, offset));
 				offset += 2;
-				// count
+				// child delta count
 				anim.unk1 = BitConverter.ToUInt16(data, offset);
 				offset += 2;
 				for (int childNum = 0; childNum < childCount; childNum++)
@@ -1963,7 +1971,7 @@ public class NISLoader : MonoBehaviour
 						childAnim.offset = childOffset;
 						childAnim.type = (AnimType) BitConverter.ToUInt16(data, childOffset);
 						childOffset += 2;
-						// checksum
+						childAnim.checkSum = BitConverter.ToUInt16(data, childOffset);
 						childOffset += 2;
 						ParseAnimation(data, childAnim, animations, offset_ignore_list, ref childOffset);
 						anim.subAnimations.Add(childAnim);
@@ -1973,43 +1981,29 @@ public class NISLoader : MonoBehaviour
 					offset += 4;
 				}
 				break;
-			/*case AnimType.ANIM_DELTAF3:
-				// some offset
+			case AnimType.ANIM_DELTAF3:
+			case AnimType.ANIM_DELTAF1:
+				// nums offset
 				offset += 4;
-				// zeros
+				// 0
 				offset += 4;
-				count = (ushort)((BitConverter.ToUInt16(data, offset) + 1) / 3);
+				//anim.delta = new float[BitConverter.ToUInt16(data, offset)][];
+				//anim.delta = new float[1][]; // todo
 				offset += 2;
-				// unk
+				// 5 1
 				offset += 2;
-				// unk
-				offset += 4;
-				anim.delta = new float[count][];
+				//int dofs = anim.type == AnimType.ANIM_DELTAF3 ? 3 : 1;
 				/*for (int i = 0; i < anim.delta.Length; i++)
 				{
-					anim.delta[i] = new float[3];
-					for (int x = 0; x < 3; x++)
+					anim.delta[i] = new float[dofs];
+					for (int x = 0; x < dofs; x++)
 					{
+						anim.delta[i][x] = BitConverter.ToSingle(data, offset);
 						offset += 4;
 					}
 				}*/
-				/*Debug.LogError("not saveable");
-				break;*/
-			/*case AnimType.ANIM_DELTAF1:
-				// some offset
-				offset += 4;
-				// zeros
-				offset += 4;
-				count = (ushort)((BitConverter.ToUInt16(data, offset) + 1) / 3);
-				offset += 2;
-				// unk
-				offset += 2;
-				// unk
-				offset += 4;
-				anim.delta = new float[count][];
-				// todo
-				/*Debug.LogError("not saveable");
-				break;*/
+				Debug.LogError(anim.type + " is not implemented");
+				break;
 			default:
 				Debug.LogError(anim.type + " is not implemented");
 				break;
