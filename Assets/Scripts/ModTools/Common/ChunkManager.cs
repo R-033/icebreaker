@@ -64,7 +64,7 @@ namespace Common
 
         public void Open(string filename)
         {
-            FileStream fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
+            FileStream fs = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
             Open(fs, 0, (int)fs.Length);
         }
 

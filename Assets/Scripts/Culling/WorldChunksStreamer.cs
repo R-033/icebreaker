@@ -40,14 +40,16 @@ namespace World.Culling
         static Dictionary<uint, SolidObject> models = new Dictionary<uint, SolidObject>();
         static Dictionary<uint, Common.Textures.Data.Texture> textures = new Dictionary<uint, Common.Textures.Data.Texture>();
 
+        public static string bankName = "L5RA";
+
         public static void Initialize()
         {
 	        sh = Shader.Find("Standard");
 
-	        FileStream f2 = new FileStream(Main.GameDirectory + "/TRACKS/STREAML2RA.BUN", FileMode.Open);
+	        FileStream f2 = new FileStream(Main.GameDirectory + "/TRACKS/STREAM" + bankName + ".BUN", FileMode.Open, FileAccess.Read, FileShare.Read);
             f = new BinaryReader(f2);
             
-			ChunkManager chunkManager = new ChunkManager(GameDetector.Game.MostWanted); // todo multiple games
+			ChunkManager chunkManager = new ChunkManager(NISLoader.CurrentGame);
 			chunkManager.Open(f2, 0, (int)f2.Length);
 			List<ChunkManager.Chunk> chunks = chunkManager.Chunks;
 			foreach (var chunk in chunks)
@@ -74,7 +76,7 @@ namespace World.Culling
 
 			f2.Position = 0;
             
-            byte[] fSmol = File.ReadAllBytes(Main.GameDirectory + "/TRACKS/L2RA.BUN");
+            byte[] fSmol = File.ReadAllBytes(Main.GameDirectory + "/TRACKS/" + bankName + ".BUN");
             streamSectionsInfo = new List<CoordDebug.StreamingSectionInfo>();
             streamSections = new List<CoordDebug.StreamingSection>();
 
@@ -382,49 +384,64 @@ namespace World.Culling
             Material[] materials = new Material[solidObject.Materials.Count];
 			for (int i = 0; i < materials.Length; i++)
 			{
-				MostWantedMaterial mat = (MostWantedMaterial) solidObject.Materials[i];
-				string n = mat.Name.Replace("<", "").Replace(">", "").Replace("/", "").Replace("\\", "").Replace(":", "");
-				n += "_" + solidObject.TextureHashes[mat.TextureIndices[0]];
-				if (materialcache.ContainsKey(solidObject.TextureHashes[mat.TextureIndices[0]]))
-					materials[i] = materialcache[solidObject.TextureHashes[mat.TextureIndices[0]]];
-				else
+				string n;
+				switch (NISLoader.CurrentGame)
 				{
-					materials[i] = new Material(sh);
-					materials[i].name = n;
-					uint h = solidObject.TextureHashes[mat.TextureIndices[0]];
-					if (textures.ContainsKey(h))
-					{
-						TextureFormat format = TextureFormat.ARGB32;
-						byte[] im = textures[h].GenerateImage();
-						switch (textures[h].CompressionType)
+					case GameDetector.Game.MostWanted:
+						MostWantedMaterial mat = (MostWantedMaterial) solidObject.Materials[i];
+						n = mat.Name.Replace("<", "").Replace(">", "").Replace("/", "").Replace("\\", "").Replace(":", "");
+						n += "_" + solidObject.TextureHashes[mat.TextureIndices[0]];
+						if (materialcache.ContainsKey(solidObject.TextureHashes[mat.TextureIndices[0]]))
+							materials[i] = materialcache[solidObject.TextureHashes[mat.TextureIndices[0]]];
+						else
 						{
-							case TextureCompression.Dxt1:
-								format = TextureFormat.DXT1;
-								break;
-							case TextureCompression.Dxt5:
-								format = TextureFormat.DXT5;
-								break;
-							case TextureCompression.P8:
-								continue; // todo
-							case TextureCompression.Dxt3:
-								im = DecodeDXT3ToARGB(im, textures[h].Width, textures[h].Height);
-								break;
-							default:
-								Debug.LogError("Unsupported texture format " + textures[h].CompressionType);
-								continue;
+							materials[i] = new Material(sh);
+							materials[i].name = n;
+							uint h = solidObject.TextureHashes[mat.TextureIndices[0]];
+							if (textures.ContainsKey(h))
+							{
+								TextureFormat format = TextureFormat.ARGB32;
+								byte[] im = textures[h].GenerateImage();
+								switch (textures[h].CompressionType)
+								{
+									case TextureCompression.Dxt1:
+										format = TextureFormat.DXT1;
+										break;
+									case TextureCompression.Dxt5:
+										format = TextureFormat.DXT5;
+										break;
+									case TextureCompression.P8:
+										continue; // todo
+									case TextureCompression.Dxt3:
+										im = DecodeDXT3ToARGB(im, textures[h].Width, textures[h].Height);
+										break;
+									default:
+										Debug.LogError("Unsupported texture format " + textures[h].CompressionType);
+										continue;
+								}
+
+								try
+								{
+									Texture2D text = new Texture2D((int) textures[h].Width, (int) textures[h].Height, format, false);
+									text.LoadRawTextureData(im);
+									text.Apply(false);
+									materials[i].mainTexture = text;
+									materials[i].mainTextureScale = new Vector2(1f, -1f);
+								}
+								catch
+								{
+								}
+							}
+
+							materialcache.Add(solidObject.TextureHashes[mat.TextureIndices[0]], materials[i]);
 						}
-
-						try
-						{
-							Texture2D text = new Texture2D((int) textures[h].Width, (int) textures[h].Height, format, false);
-							text.LoadRawTextureData(im);
-							text.Apply(false);
-							materials[i].mainTexture = text;
-							materials[i].mainTextureScale = new Vector2(1f, -1f);
-						} catch { }
-					}
-
-					materialcache.Add(solidObject.TextureHashes[mat.TextureIndices[0]], materials[i]);
+						break;
+					case GameDetector.Game.Carbon:
+						CarbonMaterial cmat = (CarbonMaterial) solidObject.Materials[i];
+						n = cmat.Name.Replace("<", "").Replace(">", "").Replace("/", "").Replace("\\", "").Replace(":", "");
+						materials[i] = new Material(sh);
+						materials[i].name = n;
+						break;
 				}
 			}
 

@@ -195,6 +195,7 @@ public class Main : MonoBehaviour
     }
 
     public Button[] HistoryButtons;
+    public Dropdown GameDropdown;
 
     void Start()
     {
@@ -218,6 +219,8 @@ public class Main : MonoBehaviour
         foreach (GameObject obj in HiddenWhenNoCamera)
             obj.SetActive(false);
         OpenedFileName.text = "";
+        GameDirInput.text = PlayerPrefs.GetString("GameDir", "");
+        GameDropdown.value = PlayerPrefs.GetInt("CurrentGame", 0);
         UpdateGameSelection();
         GetComponent<CanvasScaler>().scaleFactor = PlayerPrefs.GetFloat("GUIScale", 1f);
         if (PlayerPrefs.GetString("GameDir") == "")
@@ -247,6 +250,22 @@ public class Main : MonoBehaviour
         forceY = enable;
     }
 
+    public void UpdateGame(int num)
+    {
+        PlayerPrefs.SetInt("CurrentGame", num);
+        switch (num)
+        {
+            case 0:
+                NISLoader.CurrentGame = GameDetector.Game.MostWanted;
+                WorldChunksStreamer.bankName = "L2RA";
+                break;
+            case 1:
+                NISLoader.CurrentGame = GameDetector.Game.Carbon;
+                WorldChunksStreamer.bankName = "L5RA";
+                break;
+        }
+    }
+    
     private Vector3 dragOrigin;
 
     public static float InverseLerpUnclamped(float a, float b, float value)
@@ -1285,7 +1304,7 @@ public class Main : MonoBehaviour
                     } else if (BoneSubEdit.activeSelf) {
                         for (int sk = 0; sk < skeletons.Count; sk++)
                         {
-                            if (skeletons[sk].animationName == currentlyEditingObject.ToUpper())
+                            if (skeletons[sk].animationName == currentlyEditingObject.ToUpper() || skeletons[sk].animationName.StartsWith(currentlyEditingObject.ToUpper()))
                             {
                                 for (int b = 0; b < skeletons[sk].bones.Length; b++)
                                 {
@@ -1405,6 +1424,7 @@ public class Main : MonoBehaviour
                             CameraEditValues[11].text = cameratrack[curcam].Item2[cursegment].Freq.ToString(CultureInfo.InvariantCulture);
                             CameraEditValues[12].text = cameratrack[curcam].Item2[cursegment].unk11.ToString(CultureInfo.InvariantCulture);
                             CameraEditValues[13].text = cameratrack[curcam].Item2[cursegment].unk13[4].ToString();
+                            CameraEditValues[14].text = cameratrack[curcam].Item2[cursegment].unk13[0].ToString();
                             break;
                         case 1:
                             CameraEditValues[0].text = cameratrack[curcam].Item2[cursegment].unk6.ToString(CultureInfo.InvariantCulture);
@@ -1421,12 +1441,12 @@ public class Main : MonoBehaviour
                             CameraEditValues[11].text = cameratrack[curcam].Item2[cursegment].Freq2.ToString(CultureInfo.InvariantCulture);
                             CameraEditValues[12].text = cameratrack[curcam].Item2[cursegment].unk12.ToString(CultureInfo.InvariantCulture);
                             CameraEditValues[13].text = cameratrack[curcam].Item2[cursegment].unk13[5].ToString();
+                            CameraEditValues[14].text = cameratrack[curcam].Item2[cursegment].unk13[1].ToString();
                             break;
                         default:
                             for (int i = 0; i < 12; i++)
                                 CameraEditFlags[i].text = cameratrack[curcam].Item2[cursegment].attributes[i].ToString("X");
-                            CameraEditFlags[12].text = string.Join("-", BitConverter.ToString(cameratrack[curcam].Item2[cursegment].attributes, 12, 4).Split('-').Reverse().ToArray());
-                            CameraEditFlags[13].text = BitConverter.ToString(cameratrack[curcam].Item2[cursegment].unk13, 0, 4);
+                            CameraEditFlags[12].text = "0x" + BitConverter.ToUInt32(cameratrack[curcam].Item2[cursegment].attributes, 12).ToString("X8");
                             break;
                     }
                 }
@@ -1696,6 +1716,7 @@ public class Main : MonoBehaviour
 
     void UpdateGameSelection()
     {
+        UpdateGame(GameDropdown.value);
         GameDirectory = PlayerPrefs.GetString("GameDir");
         foreach (GameObject obj in HiddenElementsNoGame)
             obj.SetActive(GameDirectory.Length > 0);
@@ -2099,12 +2120,6 @@ public class Main : MonoBehaviour
             elftablelength += 4;
 
             LoggingMode = 0;
-            skeletonAnims = new Dictionary<string, NISLoader.Animation>();
-            foreach (NISLoader.Animation anim in anims)
-            {
-                if (anim.type == NISLoader.AnimType.ANIM_COMPOUND && anim.subAnimations.Count > 1)
-                    skeletonAnims.Add(anim.GetObjectName().ToUpper(), anim);
-            }
 
             NISLoader.SceneType sceneType = (NISLoader.SceneType) NISLoader.SceneInfo.SceneType;
             LoggingMode = 2;
@@ -2159,6 +2174,8 @@ public class Main : MonoBehaviour
             Destroy(ObjectsOnScene[car].gameObject);
         ObjectsOnScene.Clear();
         alreadyDid = new List<string>();
+        skeletonAnims = new Dictionary<string, NISLoader.Animation>();
+        List<NISLoader.Skeleton> skeletonsUnused = skeletons.ToList();
         foreach (NISLoader.Animation anim in anims)
         {
             string animobj = anim.GetObjectName();
@@ -2169,16 +2186,46 @@ public class Main : MonoBehaviour
                 if (anim.type == NISLoader.AnimType.ANIM_COMPOUND && anim.subAnimations.Count > 1)
                 {
                     NISLoader.Skeleton skeleton = null;
-                    foreach (NISLoader.Skeleton s in skeletons)
-                        if (s.animationName == animobj.ToUpper())
+                    foreach (NISLoader.Skeleton s in skeletonsUnused)
+                    {
+                        if (s.animationName == animobj.ToUpper() || s.animationName.StartsWith(animobj.ToUpper()))
                         {
                             skeleton = s;
                             break;
                         }
+                    }
+
+                    // HAX
+                    if (skeleton == null && skeletonsUnused.Count == 1)
+                    {
+                        skeleton = skeletonsUnused[0];
+                        skeleton.animationName = animobj.ToUpper();
+                    }
+
                     if (skeleton == null)
-                        Debug.LogError("Can't find skeleton for object " + animobj);
-                    else
+                    {
+                        foreach (NISLoader.Skeleton s in skeletonsUnused)
+                        {
+                            if (s.bones.Length == anim.subAnimations[0].delta[0].Length / 4)
+                            {
+                                skeleton = s;
+                                skeleton.animationName = animobj.ToUpper();
+                                break;
+                            }
+                        }
+                    }
+
+                    if (skeleton == null)
+                    {
+                        Debug.Log("Can't find skeleton for object " + animobj + " (skeletons loaded: " + string.Join(", ", skeletons.Select(x => x.animationName)) + ")");
+                    } else
+                    {
+                        skeletonAnims.Add(skeleton.animationName, anim);
                         NISLoader.GenerateSkinnedObject(target, skeleton);
+                        skeletonsUnused.Remove(skeleton);
+                        foreach (NISLoader.Bone bone in skeleton.bones)
+                            Instantiate(BoneSphere, bone.assignedTransform).transform.localPosition = Vector3.zero;
+                    }
                 }
                 else
                 {
@@ -2270,6 +2317,8 @@ public class Main : MonoBehaviour
             entry.GetComponent<Toggle>().isOn = false;
         });
     }
+
+    public GameObject BoneSphere;
 
     public class RenameAnimation : HistoryEntry
     {
@@ -2530,7 +2579,7 @@ public class Main : MonoBehaviour
         SubObjectlistMain.SetActive(false);
         foreach (var skeleton in skeletons)
         {
-            if (skeleton.animationName == objname.ToUpper())
+            if (skeleton.animationName == objname.ToUpper() || skeleton.animationName.StartsWith(objname.ToUpper()))
             {
                 SubObjectlistMain.SetActive(true);
                 objs.Add("Root");
@@ -2560,17 +2609,17 @@ public class Main : MonoBehaviour
         EditingAnimation_s = null;
         foreach (var an in anims)
         {
-            if (an.name.EndsWith("_" + currentlyEditingObject + "_t"))
+            if (an.name.EndsWith("_" + currentlyEditingObject + "_t") || an.name == currentlyEditingObject + "_t")
             {
                 max = Mathf.Max(max, (an.subAnimations.Count == 0 ? an.delta.Length : an.subAnimations[0].delta.Length) - 1);
                 EditingAnimation_t = an;
             }
-            if (an.name.EndsWith("_" + currentlyEditingObject + "_q"))
+            if (an.name.EndsWith("_" + currentlyEditingObject + "_q") || an.name == currentlyEditingObject + "_q")
             {
                 max = Mathf.Max(max, (an.subAnimations.Count == 0 ? an.delta.Length : an.subAnimations[0].delta.Length) - 1);
                 EditingAnimation_q = an;
             }
-            if (an.name.EndsWith("_" + currentlyEditingObject + "_s"))
+            if (an.name.EndsWith("_" + currentlyEditingObject + "_s") || an.name == currentlyEditingObject + "_s")
             {
                 max = Mathf.Max(max, (an.subAnimations.Count == 0 ? an.delta.Length : an.subAnimations[0].delta.Length) - 1);
                 EditingAnimation_s = an;
@@ -2587,7 +2636,9 @@ public class Main : MonoBehaviour
     {
         foreach (Transform child in tr)
         {
-            l.Add(deepness + child.gameObject.name);
+            if (child.name.Contains("BoneSphere"))
+                continue;
+            l.Add(deepness + child.gameObject.name.Split('.').Last());
             subobjs.Add(child);
             ProcessObjChildren(child, l, deepness + " ");
         }
@@ -2610,14 +2661,14 @@ public class Main : MonoBehaviour
         {
             for (int sk = 0; sk < skeletons.Count; sk++)
             {
-                if (skeletons[sk].animationName == currentlyEditingObject.ToUpper())
+                if (skeletons[sk].animationName == currentlyEditingObject.ToUpper() || skeletons[sk].animationName.StartsWith(currentlyEditingObject.ToUpper()))
                 {
                     objnn = skeletons[sk].name;
                     break;
                 }
             }
         }
-        ObjectEditingTitle.text = "Edit " + objnn + " -> " + (objindex == 0 ? "Transform" : objindex == 1 ? "Root" : subobjs[objindex].name);
+        ObjectEditingTitle.text = "Edit " + objnn + " -> " + (objindex == 0 ? "Transform" : objindex == 1 ? "Root" : subobjs[objindex].name.Split('.').Last());
         if (gizmo.targetRoots.Count > 0)
             gizmo.RemoveTarget(gizmo.targetRoots.Keys.ToArray()[0]);
         if (objindex == 0)
@@ -2626,7 +2677,7 @@ public class Main : MonoBehaviour
             editorCameraMovement.target.position = currentlyEditingSubObject.position;
             gizmo.AddTarget(currentlyEditingSubObject);
             gizmo.transformType = TransformType.Move;
-            gizmo.space = TransformSpace.Local;
+            gizmo.space = subobjs.Count > 1 ? TransformSpace.Global : TransformSpace.Local;
             RootSubEdit.SetActive(subobjs.Count == 1);
             BoneSubEdit.SetActive(false);
             LayoutSubEdit.SetActive(subobjs.Count > 1);
@@ -2771,7 +2822,7 @@ public class Main : MonoBehaviour
                 an_s = an_s.subAnimations[0];
             for (int sk = 0; sk < skeletons.Count; sk++)
             {
-                if (skeletons[sk].animationName == currentlyEditingObject.ToUpper())
+                if (skeletons[sk].animationName == currentlyEditingObject.ToUpper() || skeletons[sk].animationName.StartsWith(currentlyEditingObject.ToUpper()))
                 {
                     for (int b = 0; b < skeletons[sk].bones.Length; b++)
                     {
@@ -4399,6 +4450,12 @@ public class Main : MonoBehaviour
                     if (old != cameratrack[curcam].Item2[cursegment].unk13[4])
                         changed = true;
                 } catch { }
+                try {
+                    old = cameratrack[curcam].Item2[cursegment].unk13[0];
+                    cameratrack[curcam].Item2[cursegment].unk13[0] = byte.Parse(CameraEditValues[14].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].unk13[0])
+                        changed = true;
+                } catch { }
                 break;
             default:
                 try
@@ -4498,6 +4555,12 @@ public class Main : MonoBehaviour
                     if (old != cameratrack[curcam].Item2[cursegment].unk13[5])
                         changed = true;
                 } catch { }
+                try {
+                    old = cameratrack[curcam].Item2[cursegment].unk13[1];
+                    cameratrack[curcam].Item2[cursegment].unk13[1] = byte.Parse(CameraEditValues[14].text, CultureInfo.InvariantCulture);
+                    if (old != cameratrack[curcam].Item2[cursegment].unk13[1])
+                        changed = true;
+                } catch { }
                 break;
         }
         GenCameraSplines();
@@ -4539,24 +4602,13 @@ public class Main : MonoBehaviour
         }
         try
         {
-            string[] ss = CameraEditFlags[12].text.Split('-');
-            int ind = 3;
+            uint hash = Convert.ToUInt32(CameraEditFlags[12].text.Substring(2), 16);
+            byte[] bb = BitConverter.GetBytes(hash);
             for (int i = 12; i < 16; i++)
             {
                 old = cameratrack[curcam].Item2[cursegment].attributes[i];
-                cameratrack[curcam].Item2[cursegment].attributes[i] = (byte) Convert.ToInt32(ss[ind--], 16);
+                cameratrack[curcam].Item2[cursegment].attributes[i] = bb[i - 12];
                 if (old != cameratrack[curcam].Item2[cursegment].attributes[i])
-                    changed = true;
-            }
-        } catch {}
-        try
-        {
-            string[] ss = CameraEditFlags[13].text.Split('-');
-            for (int i = 0; i < 4; i++)
-            {
-                old = cameratrack[curcam].Item2[cursegment].unk13[i];
-                cameratrack[curcam].Item2[cursegment].unk13[i] = (byte) Convert.ToInt32(ss[i], 16);
-                if (old != cameratrack[curcam].Item2[cursegment].unk13[i])
                     changed = true;
             }
         } catch {}

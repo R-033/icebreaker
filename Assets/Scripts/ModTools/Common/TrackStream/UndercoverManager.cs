@@ -127,7 +127,7 @@ namespace Common.TrackStream
             var sectionInfoMap = new Dictionary<uint, StreamChunkInfo>();
             var sectionDataMap = new Dictionary<uint, byte[]>();
 
-            using (var fs = new FileStream(masterStreamPath, FileMode.Open))
+            using (var fs = new FileStream(masterStreamPath, FileMode.Open, FileAccess.Read, FileShare.Read))
             using (var br = new BinaryReader(fs))
             {
                 foreach (var section in bundle.Sections)

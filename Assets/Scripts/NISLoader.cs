@@ -1368,27 +1368,31 @@ public class NISLoader : MonoBehaviour
         rend.bones = bones;
         // guessing weights for now
         // todo
-        BoneWeight[] weights = new BoneWeight[skeleton.attachedMesh.vertexCount];
-        for (int vertexNum = 0; vertexNum < skeleton.attachedMesh.vertexCount; vertexNum++)
+        if (CurrentGame == GameDetector.Game.MostWanted)
         {
-	        int closestBone = 0;
-	        float dist = Vector3.Distance(boneTransforms[skeleton.bones[0].name].position, skeleton.attachedMesh.vertices[vertexNum]);
-	        float newDist;
-            for (int boneNum = 0; boneNum < skeleton.bones.Length; boneNum++)
-            {
-	            newDist = Vector3.Distance(boneTransforms[skeleton.bones[boneNum].name].position, skeleton.attachedMesh.vertices[vertexNum]);
-                if (newDist < dist)
-                {
-                    dist = newDist;
-                    closestBone = boneNum;
-                }
-            }
-            BoneWeight weight = new BoneWeight();
-            weight.weight0 = 1f;
-            weight.boneIndex0 = closestBone;
-            weights[vertexNum] = weight;
+	        BoneWeight[] weights = new BoneWeight[skeleton.attachedMesh.vertexCount];
+	        for (int vertexNum = 0; vertexNum < skeleton.attachedMesh.vertexCount; vertexNum++)
+	        {
+		        int closestBone = 0;
+		        float dist = (boneTransforms[skeleton.bones[0].name].position - skeleton.attachedMesh.vertices[vertexNum]).sqrMagnitude;
+		        float newDist;
+		        for (int boneNum = 0; boneNum < skeleton.bones.Length; boneNum++)
+		        {
+			        newDist = (boneTransforms[skeleton.bones[boneNum].name].position - skeleton.attachedMesh.vertices[vertexNum]).sqrMagnitude;
+			        if (newDist < dist)
+			        {
+				        dist = newDist;
+				        closestBone = boneNum;
+			        }
+		        }
+
+		        BoneWeight weight = new BoneWeight();
+		        weight.weight0 = 1f;
+		        weight.boneIndex0 = closestBone;
+		        weights[vertexNum] = weight;
+	        }
+	        skeleton.attachedMesh.boneWeights = weights;
         }
-        skeleton.attachedMesh.boneWeights = weights;
         Matrix4x4[] bindposes = new Matrix4x4[skeleton.bones.Length];
         for (int boneNum = 0; boneNum < skeleton.bones.Length; boneNum++)
             bindposes[boneNum] = boneTransforms[skeleton.bones[boneNum].name].worldToLocalMatrix;
@@ -1396,6 +1400,8 @@ public class NISLoader : MonoBehaviour
         rend.sharedMesh = skeleton.attachedMesh;
         target.eulerAngles = new Vector3(-90f, 0f, 0f);
 	}
+
+	public static GameDetector.Game CurrentGame = GameDetector.Game.Carbon;
 
 	public static (List<Animation>, List<Skeleton>) LoadAnimations(string nisname, string gamepath)
 	{
@@ -1428,7 +1434,7 @@ public class NISLoader : MonoBehaviour
 			{
 				Dictionary<uint, Material> materialcache = new Dictionary<uint, Material>();
 				Shader sh = Shader.Find("Standard");
-				ChunkManager chunkManager = new ChunkManager(GameDetector.Game.MostWanted); // todo multiple games
+				ChunkManager chunkManager = new ChunkManager(CurrentGame);
 				chunkManager.Open(stream, 0, bytes.Length);
 				List<ChunkManager.Chunk> chunks = chunkManager.Chunks;
 				Dictionary<uint, Common.Textures.Data.Texture> textures = new Dictionary<uint, Common.Textures.Data.Texture>();
@@ -1454,46 +1460,58 @@ public class NISLoader : MonoBehaviour
 							Material[] materials = new Material[solidObject.Materials.Count];
 							for (int i = 0; i < materials.Length; i++)
 							{
-								MostWantedMaterial mat = (MostWantedMaterial) solidObject.Materials[i];
-								string n = mat.Name.Replace("<", "").Replace(">", "").Replace("/", "").Replace("\\", "").Replace(":", "");
-								n += "_" + solidObject.TextureHashes[mat.TextureIndices[0]];
-								if (materialcache.ContainsKey(solidObject.TextureHashes[mat.TextureIndices[0]]))
-									materials[i] = materialcache[solidObject.TextureHashes[mat.TextureIndices[0]]];
-								else
+								string n;
+								switch (CurrentGame)
 								{
-									materials[i] = new Material(sh);
-									materials[i].name = n;
-									uint h = solidObject.TextureHashes[mat.TextureIndices[0]];
-									if (textures.ContainsKey(h))
-									{
-										TextureFormat format = TextureFormat.ARGB32;
-										byte[] im = textures[h].GenerateImage();
-										switch (textures[h].CompressionType)
+									case GameDetector.Game.MostWanted:
+										MostWantedMaterial mat = (MostWantedMaterial) solidObject.Materials[i];
+										n = mat.Name.Replace("<", "").Replace(">", "").Replace("/", "").Replace("\\", "").Replace(":", "");
+										n += "_" + solidObject.TextureHashes[mat.TextureIndices[0]];
+										if (materialcache.ContainsKey(solidObject.TextureHashes[mat.TextureIndices[0]]))
+											materials[i] = materialcache[solidObject.TextureHashes[mat.TextureIndices[0]]];
+										else
 										{
-											case TextureCompression.Dxt1:
-												format = TextureFormat.DXT1;
-												break;
-											case TextureCompression.Dxt5:
-												format = TextureFormat.DXT5;
-												break;
-											case TextureCompression.P8:
-												continue; // todo
-											default:
-												Debug.LogError("Unsupported texture format " + textures[h].CompressionType);
-												continue;
+											materials[i] = new Material(sh);
+											materials[i].name = n;
+											uint h = solidObject.TextureHashes[mat.TextureIndices[0]];
+											if (textures.ContainsKey(h))
+											{
+												TextureFormat format = TextureFormat.ARGB32;
+												byte[] im = textures[h].GenerateImage();
+												switch (textures[h].CompressionType)
+												{
+													case TextureCompression.Dxt1:
+														format = TextureFormat.DXT1;
+														break;
+													case TextureCompression.Dxt5:
+														format = TextureFormat.DXT5;
+														break;
+													case TextureCompression.P8:
+														continue; // todo
+													default:
+														Debug.LogError("Unsupported texture format " + textures[h].CompressionType);
+														continue;
+												}
+
+												try
+												{
+													Texture2D text = new Texture2D((int) textures[h].Width, (int) textures[h].Height, format, false);
+													text.LoadRawTextureData(im);
+													text.Apply(false);
+													materials[i].mainTexture = text;
+													materials[i].mainTextureScale = new Vector2(1f, -1f);
+												} catch { }
+											}
+
+											materialcache.Add(solidObject.TextureHashes[mat.TextureIndices[0]], materials[i]);
 										}
-
-										try
-										{
-											Texture2D text = new Texture2D((int) textures[h].Width, (int) textures[h].Height, format, false);
-											text.LoadRawTextureData(im);
-											text.Apply(false);
-											materials[i].mainTexture = text;
-											materials[i].mainTextureScale = new Vector2(1f, -1f);
-										} catch { }
-									}
-
-									materialcache.Add(solidObject.TextureHashes[mat.TextureIndices[0]], materials[i]);
+										break;
+									case GameDetector.Game.Carbon:
+										CarbonMaterial cmat = (CarbonMaterial) solidObject.Materials[i];
+										n = cmat.Name.Replace("<", "").Replace(">", "").Replace("/", "").Replace("\\", "").Replace(":", "");
+										materials[i] = new Material(sh);
+										materials[i].name = n;
+										break;
 								}
 							}
 
@@ -1539,9 +1557,9 @@ public class NISLoader : MonoBehaviour
 				}
 			}
 		}
-		catch// (Exception e)
+		catch (Exception e)
 		{
-			//Debug.LogError(e);
+			Debug.Log(e);
 		}
 
 		int size;
@@ -1825,7 +1843,7 @@ public class NISLoader : MonoBehaviour
 				break;
 			skeletons[i].attachedMesh = models[i].Item1;
 			skeletons[i].attachedMaterials = models[i].Item2;
-			skeletons[i].animationName = skeletons[i].attachedMesh.name.Substring(0, skeletons[i].attachedMesh.name.IndexOf("0"));
+			skeletons[i].animationName = skeletons[i].attachedMesh.name;
 		}
 		return (animations, skeletons);
 	}
