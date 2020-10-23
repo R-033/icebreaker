@@ -321,6 +321,49 @@ namespace World.Culling
         Dictionary<uint, Material[]> cache_2 = new Dictionary<uint, Material[]>();
         List<uint> loading = new List<uint>();
 
+        private static Quaternion LookRotation(float m00, float m02, float m01, float m20, float m22, float m21, float m10, float m12, float m11)
+        {
+            float num8 = m00 + m11 + m22;
+            float x, y, z, w;
+            if (num8 > 0f)
+            {
+                var num = Mathf.Sqrt(num8 + 1f);
+                w = num * 0.5f;
+                num = 0.5f / num;
+                x = (m12 - m21) * num;
+                y = (m20 - m02) * num;
+                z = (m01 - m10) * num;
+                return new Quaternion(x, y, z, w);
+            }
+            if (m00 >= m11 && m00 >= m22)
+            {
+                var num7 = Mathf.Sqrt(1f + m00 - m11 - m22);
+                var num4 = 0.5f / num7;
+                x = 0.5f * num7;
+                y = (m01 + m10) * num4;
+                z = (m02 + m20) * num4;
+                w = (m12 - m21) * num4;
+                return new Quaternion(x, y, z, w);
+            }
+            if (m11 > m22)
+            {
+                var num6 = Mathf.Sqrt(1f + m11 - m00 - m22);
+                var num3 = 0.5f / num6;
+                x = (m10 + m01) * num3;
+                y = 0.5f * num6;
+                z = (m21 + m12) * num3;
+                w = (m20 - m02) * num3;
+                return new Quaternion(x, y, z, w);
+            }
+            var num5 = Mathf.Sqrt(1f + m22 - m00 - m11);
+            var num2 = 0.5f / num5;
+            x = (m20 + m02) * num2;
+            y = (m21 + m12) * num2;
+            z = 0.5f * num5;
+            w = (m01 - m10) * num2;
+            return new Quaternion(x, y, z, w);
+        }
+
         private IEnumerator LoadingSubWait(Chunk chunk, int ins, Transform parent)
         {
             CoordDebug.SceneryInstanceStruct inst = chunk.sectionInfo.instanceArray[ins];
@@ -342,15 +385,24 @@ namespace World.Culling
             obj = new GameObject(inf.NameHash0.ToString("X"), typeof(MeshFilter), typeof(MeshRenderer));
 			obj.transform.SetParent(parent);
 			obj.transform.position = pos;
-            Vector3 upwards = new Vector3(inst.Rot20, inst.Rot22, inst.Rot21);
-            Vector3 forward = new Vector3(inst.Rot10, inst.Rot12, inst.Rot11);
-            obj.transform.rotation = Quaternion.LookRotation(forward, upwards);
-            obj.transform.localScale = new Vector3(
-                new Vector3(inst.Rot00, inst.Rot02, inst.Rot01).magnitude / 8192f,
-                upwards.magnitude / 8192f,
-                forward.magnitude / 8192f);
+			Vector3 right = new Vector3(inst.Rot00, inst.Rot01, inst.Rot02) * 0.00012207031f;
+			Vector3 upwards = new Vector3(inst.Rot20, inst.Rot21, inst.Rot22) * 0.00012207031f;
+			Vector3 forward = new Vector3(inst.Rot10, inst.Rot11, inst.Rot12) * 0.00012207031f;
+			obj.transform.localScale = new Vector3(
+				right.magnitude,
+				upwards.magnitude,
+				forward.magnitude);
+			right = right.normalized;
+			forward = forward.normalized;
+			upwards = upwards.normalized;
+			if (Vector3.Dot(Vector3.Cross(forward.normalized, upwards.normalized), right) < 0f)
+			{
+				right = -right;
+				obj.transform.localScale = new Vector3(-obj.transform.localScale.x, obj.transform.localScale.y, obj.transform.localScale.z);
+			}
+			obj.transform.rotation = LookRotation(right.x, right.y, right.z, forward.x, forward.y, forward.z, upwards.x, upwards.y, upwards.z);
 
-            bool loaded = cache_1.ContainsKey(inf.NameHash0);
+			bool loaded = cache_1.ContainsKey(inf.NameHash0);
             if (!loaded)
             {
                 if (loading.Contains(inf.NameHash0))

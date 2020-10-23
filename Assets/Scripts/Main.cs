@@ -4253,16 +4253,18 @@ public class Main : MonoBehaviour
 
                 if (anim_pos != null && anim_rot != null)
                 {
+                    RaycastHit hit;
+
                     eval = NISLoader.EvaluateAnim(anim_pos, e.Time * cameratrack[curcam].Item1.Duration);
                     player_car_position = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
-                    player_car_position = new Vector3(player_car_position.x, forceY ? NISLoader.GetGroundY(player_car_position) : player_car_position.y, player_car_position.z);
+                    player_car_position = new Vector3(player_car_position.x, forceY ? NISLoader.GetGroundY(player_car_position, out hit) : player_car_position.y, player_car_position.z);
                     eval = NISLoader.EvaluateAnim(anim_rot, e.Time * cameratrack[curcam].Item1.Duration);
                     player_car_rotation = Quaternion.Lerp(new Quaternion(eval.Item1[0], eval.Item1[1], eval.Item1[2], eval.Item1[3]), new Quaternion(eval.Item2[0], eval.Item2[1], eval.Item2[2], eval.Item2[3]), eval.Item3);
                     startpos = player_car_position + Quaternion.Euler(0f, -90f + (90f - player_car_rotation.z), 0f) * startpos;
 
                     eval = NISLoader.EvaluateAnim(anim_pos, (i < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[i + 1].Time : 1f) * cameratrack[curcam].Item1.Duration);
                     player_car_position = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
-                    player_car_position = new Vector3(player_car_position.x, forceY ? NISLoader.GetGroundY(player_car_position) : player_car_position.y, player_car_position.z);
+                    player_car_position = new Vector3(player_car_position.x, forceY ? NISLoader.GetGroundY(player_car_position, out hit) : player_car_position.y, player_car_position.z);
                     eval = NISLoader.EvaluateAnim(anim_rot, (i < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[i + 1].Time : 1f) * cameratrack[curcam].Item1.Duration);
                     player_car_rotation = Quaternion.Lerp(new Quaternion(eval.Item1[0], eval.Item1[1], eval.Item1[2], eval.Item1[3]), new Quaternion(eval.Item2[0], eval.Item2[1], eval.Item2[2], eval.Item2[3]), eval.Item3);
                     endpos = player_car_position + Quaternion.Euler(0f, -90f + (90f - player_car_rotation.z), 0f) * startpos;
@@ -4294,16 +4296,18 @@ public class Main : MonoBehaviour
 
                 if (anim_pos != null && anim_rot != null)
                 {
+                    RaycastHit hit;
+
                     eval = NISLoader.EvaluateAnim(anim_pos, e.Time * cameratrack[curcam].Item1.Duration);
                     player_car_position = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
-                    player_car_position = new Vector3(player_car_position.x, forceY ? NISLoader.GetGroundY(player_car_position) : player_car_position.y, player_car_position.z);
+                    player_car_position = new Vector3(player_car_position.x, forceY ? NISLoader.GetGroundY(player_car_position, out hit) : player_car_position.y, player_car_position.z);
                     eval = NISLoader.EvaluateAnim(anim_rot, e.Time * cameratrack[curcam].Item1.Duration);
                     player_car_rotation = Quaternion.Lerp(new Quaternion(eval.Item1[0], eval.Item1[1], eval.Item1[2], eval.Item1[3]), new Quaternion(eval.Item2[0], eval.Item2[1], eval.Item2[2], eval.Item2[3]), eval.Item3);
                     startpos = player_car_position + Quaternion.Euler(0f, -90f + (90f - player_car_rotation.z), 0f) * startpos;
 
                     eval = NISLoader.EvaluateAnim(anim_pos, (i < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[i + 1].Time : 1f) * cameratrack[curcam].Item1.Duration);
                     player_car_position = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
-                    player_car_position = new Vector3(player_car_position.x, forceY ? NISLoader.GetGroundY(player_car_position) : player_car_position.y, player_car_position.z);
+                    player_car_position = new Vector3(player_car_position.x, forceY ? NISLoader.GetGroundY(player_car_position, out hit) : player_car_position.y, player_car_position.z);
                     eval = NISLoader.EvaluateAnim(anim_rot, (i < cameratrack[curcam].Item2.Length - 1 ? cameratrack[curcam].Item2[i + 1].Time : 1f) * cameratrack[curcam].Item1.Duration);
                     player_car_rotation = Quaternion.Lerp(new Quaternion(eval.Item1[0], eval.Item1[1], eval.Item1[2], eval.Item1[3]), new Quaternion(eval.Item2[0], eval.Item2[1], eval.Item2[2], eval.Item2[3]), eval.Item3);
                     endpos = player_car_position + Quaternion.Euler(0f, -90f + (90f - player_car_rotation.z), 0f) * startpos;

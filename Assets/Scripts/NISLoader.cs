@@ -1028,7 +1028,46 @@ public class NISLoader : MonoBehaviour
             return Lerp1dCurve(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
         }
 
-        Vector3 GetPoint(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t) {
+		public float GetDOFFocus(float t)
+		{
+			float p1, p2, p3, p4;
+			if (cam.Count == 1)
+			{
+				p1 = cam[0].e.unk11;
+				p2 = cam[0].e.unk12;
+				if (Main.CameraSmoothingEnabled)
+					return Mathf.SmoothStep(p1, p2, t);
+				return Mathf.Lerp(p1, p2, t);
+			}
+			int i = ind(ref t);
+			p1 = cam[i].e.unk11;
+			p2 = cam[i].e.unk12;
+			p3 = cam[i + 1].e.unk11;
+			p4 = cam[i + 1].e.unk12;
+			return Lerp1dCurve(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
+		}
+
+		public float GetDOFFStop(float t)
+		{
+			float p1, p2, p3, p4;
+			if (cam.Count == 1)
+			{
+				p1 = cam[0].e.unk9;
+				p2 = cam[0].e.unk10;
+				if (Main.CameraSmoothingEnabled)
+					return Mathf.SmoothStep(p1, p2, t);
+				return Mathf.Lerp(p1, p2, t);
+			}
+			int i = ind(ref t);
+			p1 = cam[i].e.unk9;
+			p2 = cam[i].e.unk10;
+			p3 = cam[i + 1].e.unk9;
+			p4 = cam[i + 1].e.unk10;
+			return Lerp1dCurve(p1, p2, p3, p4, Mathf.SmoothStep(0f, 1f, t));
+		}
+
+
+		Vector3 GetPoint(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t) {
 			t = Mathf.Clamp01(t);
 			float oneMinusT = 1f - t;
 			return
@@ -1155,6 +1194,20 @@ public class NISLoader : MonoBehaviour
 		target.transform.Rotate(new Vector3(amp * Mathf.Sin(t * freq), amp * Mathf.Sin(t * 2f * freq), spline.GetTangent(progression) * 360f), Space.Self);
 		target.focalLength = spline.GetFocalLength(progression);
         Main.timescale = spline.GetTimeScale(progression) * 0.01f;
+		UnityEngine.Rendering.PostProcessing.PostProcessVolume volume = Camera.main.GetComponent<UnityEngine.Rendering.PostProcessing.PostProcessVolume>();
+		if (volume != null)
+		{
+			UnityEngine.Rendering.PostProcessing.DepthOfField dof;
+			volume.profile.TryGetSettings(out dof);
+			if (dof)
+			{
+				dof.focalLength.value = target.focalLength / 2f;
+				dof.aperture.value = spline.GetDOFFStop(progression);
+				float foc = spline.GetDOFFocus(progression);
+				dof.focusDistance.value = foc;
+				dof.active = foc > 0f;
+			}
+		}
 	}
 
 	// todo add to cxmw
@@ -1210,9 +1263,8 @@ public class NISLoader : MonoBehaviour
 		return splines;
 	}
 
-	public static float GetGroundY(Vector3 pos)
+	public static float GetGroundY(Vector3 pos, out RaycastHit hit)
 	{
-		RaycastHit hit;
 		if (Physics.Raycast(pos + Vector3.up * 2000f, Vector3.down, out hit, 4000f, 1))
 			return hit.point.y;
 		return pos.y;
@@ -1233,16 +1285,25 @@ public class NISLoader : MonoBehaviour
 		if (!players.ContainsKey(objname))
 			return;
 		Transform target = players[objname];
+		RaycastHit hit = new RaycastHit();
 		switch (animtype)
 		{
 			case "t":
 				Vector3 target_pos = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
-				Vector3 targetposition = new Vector3(target_pos.x, forceY ? GetGroundY(target_pos) : target_pos.y, target_pos.z);
+				Vector3 targetposition = new Vector3(target_pos.x, forceY ? GetGroundY(target_pos, out hit) : target_pos.y, target_pos.z);
 				target.position = targetposition;
 				break;
 			case "q":
 				Vector3 rot = Quaternion.Lerp(new Quaternion(eval.Item1[0], eval.Item1[1], eval.Item1[2], eval.Item1[3]), new Quaternion(eval.Item2[0], eval.Item2[1], eval.Item2[2], eval.Item2[3]), eval.Item3).eulerAngles;
-				target.eulerAngles = new Vector3(-rot.y, 90f - rot.z, rot.x);
+				target.eulerAngles = new Vector3(forceY ? target.eulerAngles.x : -rot.y, 90f - rot.z, forceY ? target.eulerAngles.z : rot.x);
+				if (forceY)
+                {
+					GetGroundY(target.position, out hit);
+					float roty = target.eulerAngles.y;
+					target.up = hit.normal;
+					target.eulerAngles = new Vector3(target.eulerAngles.x, 0f, target.eulerAngles.z);
+					target.Rotate(new Vector3(0f, roty, 0f), Space.Self);
+				}
 				break;
 		}
 	}
