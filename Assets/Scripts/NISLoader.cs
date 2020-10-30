@@ -1291,7 +1291,34 @@ public class NISLoader : MonoBehaviour
 			case "t":
 				Vector3 target_pos = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
 				Vector3 targetposition = new Vector3(target_pos.x, forceY ? GetGroundY(target_pos, out hit) : target_pos.y, target_pos.z);
+				Vector3 travel = targetposition - target.position;
 				target.position = targetposition;
+				Transform wheelparent = target.GetChild(0).Find("Wheel Transforms");
+				//if (wheelparent)
+				{
+					float travel_z = target.InverseTransformDirection(travel).z;
+					float wheel_radius = 0.31f;
+					float wheel_circumference = 2f * Mathf.PI * wheel_radius;
+					float wheelrot = travel_z / wheel_circumference * 360f;
+					float target_angle = travel.magnitude > 0.1f ? Vector3.SignedAngle(target.forward, travel.normalized, Vector3.up) : 0f;
+					if (Mathf.Abs(target_angle) < 0.1f)
+						target_angle = 0f;
+					int wheelcount = 0;
+					foreach (Transform wheel in wheelparent)
+					{
+						wheel.Rotate(wheelrot, 0f, 0f, Space.Self);
+						/*if (wheelcount++ < 2)
+                        {
+							float source_angle = wheel.localEulerAngles.y;
+							if (source_angle > 180f)
+								source_angle -= 360f;
+							target_angle = Mathf.Lerp(source_angle, target_angle, Time.deltaTime * 10f);
+							if (target_angle < 0f)
+								target_angle += 360f;
+							wheel.localEulerAngles = new Vector3(wheel.localEulerAngles.x, target_angle, 0f);
+                        }*/
+					}
+				}
 				break;
 			case "q":
 				Vector3 rot = Quaternion.Lerp(new Quaternion(eval.Item1[0], eval.Item1[1], eval.Item1[2], eval.Item1[3]), new Quaternion(eval.Item2[0], eval.Item2[1], eval.Item2[2], eval.Item2[3]), eval.Item3).eulerAngles;
