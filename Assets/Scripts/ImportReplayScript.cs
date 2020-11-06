@@ -38,11 +38,11 @@ public class ImportReplayScript : MonoBehaviour
 
         if (timeline.value < min.value || timeline.value > max.value)
         {
-            NISLoader.ApplyCarMovement(main.ObjectsOnScene, originalPosition, timeline.value, main.forceY, true);
-            NISLoader.ApplyCarMovement(main.ObjectsOnScene, originalRotation, timeline.value, main.forceY, true);
+            NISLoader.ApplyCarMovement(main.ObjectsOnScene, originalPosition, timeline.value, main.forceY, true, (NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC);
+            NISLoader.ApplyCarMovement(main.ObjectsOnScene, originalRotation, timeline.value, main.forceY, true, (NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC);
         } else {
-            NISLoader.ApplyCarMovement(main.ObjectsOnScene, replayPosition, timeline.value - min.value, main.forceY, true);
-            NISLoader.ApplyCarMovement(main.ObjectsOnScene, replayRotation, timeline.value - min.value, main.forceY, true);
+            NISLoader.ApplyCarMovement(main.ObjectsOnScene, replayPosition, timeline.value - min.value, main.forceY, true, (NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC);
+            NISLoader.ApplyCarMovement(main.ObjectsOnScene, replayRotation, timeline.value - min.value, main.forceY, true, (NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC);
         }
 
         main.editorCameraMovement.target.position = main.currentlyEditingSubObject.position;

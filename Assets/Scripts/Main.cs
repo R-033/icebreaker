@@ -58,6 +58,8 @@ public class Main : MonoBehaviour
     public Text[] CamProps;
     public Text segmenttitle;
 
+    public GameObject MarkerWindow;
+
     public Text TimeText;
 
     public Text CoordText;
@@ -248,6 +250,11 @@ public class Main : MonoBehaviour
     public void UpdateForceY(bool enable)
     {
         forceY = enable;
+    }
+
+    public void UpdateDrawDOF(bool enable)
+    {
+        Camera.main.GetComponent<UnityEngine.Rendering.PostProcessing.PostProcessVolume>().enabled = enable;
     }
 
     public void UpdateGame(int num)
@@ -1099,18 +1106,28 @@ public class Main : MonoBehaviour
                             //if (EditingAnimation_t.type == NISLoader.AnimType.ANIM_COMPOUND)
                             //    EditingAnimation_t = EditingAnimation_t.subAnimations[0];
                             //EditingAnimation_t.delta[pos] = new float[];
-                            RootValues[0].text = currentlyEditingSubObject.transform.position.x.ToString(CultureInfo.InvariantCulture);
-                            RootValues[1].text = currentlyEditingSubObject.transform.position.z.ToString(CultureInfo.InvariantCulture);
+                            Vector3 pos = currentlyEditingSubObject.transform.position;
+                            if ((NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC)
+                            {
+                                pos = Quaternion.Inverse(NISLoader.startrot) * (pos - NISLoader.startpos);
+                            }
+                            RootValues[0].text = pos.x.ToString(CultureInfo.InvariantCulture);
+                            RootValues[1].text = pos.z.ToString(CultureInfo.InvariantCulture);
                             if (!forceY)
-                                RootValues[2].text = currentlyEditingSubObject.transform.position.y.ToString(CultureInfo.InvariantCulture);
+                                RootValues[2].text = pos.y.ToString(CultureInfo.InvariantCulture);
                         }
                         if (EditingAnimation_q != null)
                         {
                             //if (EditingAnimation_q.type == NISLoader.AnimType.ANIM_COMPOUND)
                             //    EditingAnimation_q = EditingAnimation_q.subAnimations[0];
-                            RootValues[3].text = currentlyEditingSubObject.transform.eulerAngles.z.ToString(CultureInfo.InvariantCulture);
-                            RootValues[4].text = (-currentlyEditingSubObject.transform.eulerAngles.x).ToString(CultureInfo.InvariantCulture);
-                            RootValues[5].text = (-(currentlyEditingSubObject.transform.eulerAngles.y - 90f)).ToString(CultureInfo.InvariantCulture);
+                            Quaternion rot = currentlyEditingSubObject.transform.rotation;
+                            if ((NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC)
+                            {
+                                rot = Quaternion.Inverse(NISLoader.startrot) * rot;
+                            }
+                            RootValues[3].text = rot.eulerAngles.z.ToString(CultureInfo.InvariantCulture);
+                            RootValues[4].text = (-rot.eulerAngles.x).ToString(CultureInfo.InvariantCulture);
+                            RootValues[5].text = (-(rot.eulerAngles.y - 90f)).ToString(CultureInfo.InvariantCulture);
                         }
                         if (!objectmovetrigger)
                         {
@@ -1403,6 +1420,8 @@ public class Main : MonoBehaviour
                     f.interactable = !playing && !RealtimeCameraEditActive;
                 foreach (InputField f in CameraEditFlags)
                     f.interactable = !playing && !RealtimeCameraEditActive;
+                AnchorDropdown.interactable = !playing && !RealtimeCameraEditActive;
+                FNGDropdown.interactable = !playing && !RealtimeCameraEditActive;
                 if (oldsegment != cursegment)
                 {
                     allow_changes = false;
@@ -1447,6 +1466,39 @@ public class Main : MonoBehaviour
                             for (int i = 0; i < 12; i++)
                                 CameraEditFlags[i].text = cameratrack[curcam].Item2[cursegment].attributes[i].ToString("X");
                             CameraEditFlags[12].text = "0x" + BitConverter.ToUInt32(cameratrack[curcam].Item2[cursegment].attributes, 12).ToString("X8");
+                            switch (cameratrack[curcam].Item2[cursegment].attributes[4])
+                            {
+                                case 0:
+                                    AnchorDropdown.value = 0;
+                                    break;
+                                case 1:
+                                    AnchorDropdown.value = 1;
+                                    break;
+                                case 3:
+                                    AnchorDropdown.value = 2;
+                                    break;
+                                default:
+                                    AnchorDropdown.value = 3;
+                                    break;
+                            }
+                            switch (cameratrack[curcam].Item2[cursegment].attributes[10])
+                            {
+                                case 0:
+                                    FNGDropdown.value = 0;
+                                    break;
+                                case 2:
+                                    FNGDropdown.value = 1;
+                                    break;
+                                case 3:
+                                    FNGDropdown.value = 2;
+                                    break;
+                                case 4:
+                                    FNGDropdown.value = 3;
+                                    break;
+                                default:
+                                    FNGDropdown.value = 4;
+                                    break;
+                            }
                             break;
                     }
                 }
@@ -1580,7 +1632,7 @@ public class Main : MonoBehaviour
             timeinsec = timeline * totalLength;
             foreach (NISLoader.Animation anim in anims)
             {
-                NISLoader.ApplyCarMovement(ObjectsOnScene, anim, tabnum == 2 ? animtabindex : timeinsec, forceY, tabnum == 2);
+                NISLoader.ApplyCarMovement(ObjectsOnScene, anim, tabnum == 2 ? animtabindex : timeinsec, forceY, tabnum == 2, (NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC);
             }
             for (int sk = 0; sk < skeletons.Count; sk++)
             {
@@ -1658,6 +1710,10 @@ public class Main : MonoBehaviour
                         Transform player_car = ObjectsOnScene.ContainsKey("Car1") ? ObjectsOnScene["Car1"] : SceneRoot;
                         eyepos = Quaternion.Euler(0f, -(-90f + player_car.eulerAngles.y), 0f) * (SceneCamera.transform.position - player_car.position);
                         lookpos = Quaternion.Euler(0f, -(-90f + player_car.eulerAngles.y), 0f) * (FocusSphere.transform.position - player_car.position);
+                        break;
+                    case 0x03:
+                        eyepos = Quaternion.Inverse(NISLoader.startrot) * (SceneCamera.transform.position - NISLoader.startpos);
+                        lookpos = Quaternion.Inverse(NISLoader.startrot) * (FocusSphere.transform.position - NISLoader.startpos);
                         break;
                     default:
                         eyepos = SceneCamera.transform.position;
@@ -2121,7 +2177,6 @@ public class Main : MonoBehaviour
 
             LoggingMode = 0;
 
-            NISLoader.SceneType sceneType = (NISLoader.SceneType) NISLoader.SceneInfo.SceneType;
             LoggingMode = 2;
             (cameratrack_offset, cameratrack) = NISLoader.LoadCameraTrack(nisname, GameDirectory);
             /*for (int i = 0; i < cameratrack[0].Item2.Length; i++)
@@ -2888,10 +2943,27 @@ public class Main : MonoBehaviour
                 }
             }
 
-            deltaPos.Add(new[] {result.posZ, -result.posX, result.posY});
+            Vector3 pos = new Vector3(result.posZ, result.posY, -result.posX);
+
+            if ((NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC)
+            {
+                pos = Quaternion.Inverse(NISLoader.startrot) * (pos - NISLoader.startpos);
+            }
+
+            deltaPos.Add(new[] {pos.x, pos.z, pos.y});
             Vector3 rot = new Quaternion(result.rotX, result.rotY, result.rotZ, result.rotW).eulerAngles;
             Quaternion res = Quaternion.Euler(rot.z, -rot.x, -rot.y);
-            deltaRot.Add(new[] {res.x, res.y, res.z, res.w});
+
+            if ((NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC)
+            {
+                rot = new Vector3(-res.eulerAngles.y, 90f - res.eulerAngles.z, res.eulerAngles.x);
+                res = Quaternion.Euler(rot);
+                res = Quaternion.Inverse(NISLoader.startrot) * res;
+                res = Quaternion.Euler(res.eulerAngles.z, -res.eulerAngles.x, -(res.eulerAngles.y - 90f));
+            }
+
+            deltaRot.Add(new[] { res.x, res.y, res.z, res.w });
+
             curdelta++;
         } while (last < source.Length - 1);
         imreplayscript.originalPosition = EditingAnimation_t;
@@ -3839,6 +3911,19 @@ public class Main : MonoBehaviour
                 gizmo.RemoveTarget(gizmo.targetRoots.Keys.ToArray()[0]);
         }
         FocusSphere.gameObject.SetActive(tabnum == 3);
+        bool camusesmarker = false;
+        foreach (var v in cameratrack)
+        {
+            foreach (var g in v.Item2)
+            {
+                if (g.attributes[4] == 0x03)
+                {
+                    camusesmarker = true;
+                    break;
+                }
+            }
+        }
+        MarkerWindow.SetActive((NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC || camusesmarker);
         oldsegment = -1;
         //DrawCameraPath();
     }
@@ -3934,7 +4019,7 @@ public class Main : MonoBehaviour
             val = float.Parse(DurationField.text, CultureInfo.InvariantCulture);
         } catch {}
 
-        header.Unknown1 = new byte[16];
+        header.Unknown1 = new byte[12];
         try
         {
             string[] ss = NewCameraTrackBytes.text.Split('-');
@@ -4213,6 +4298,52 @@ public class Main : MonoBehaviour
 
     public Material LineMaterial;
 
+    public InputField MarkerX;
+    public InputField MarkerZ;
+    public InputField MarkerY;
+    public InputField MarkerRot;
+    public Transform Marker;
+
+    public void MarkerValuesUpdated()
+    {
+        float x = 0f;
+        float z = 0f;
+        float y = 0f;
+        float rot = 0f;
+        try
+        {
+            x = float.Parse(MarkerX.text, CultureInfo.InvariantCulture);
+        } catch { }
+        try
+        {
+            z = float.Parse(MarkerZ.text, CultureInfo.InvariantCulture);
+        }
+        catch { }
+        try
+        {
+            y = float.Parse(MarkerY.text, CultureInfo.InvariantCulture);
+        }
+        catch { }
+        try
+        {
+            rot = float.Parse(MarkerRot.text, CultureInfo.InvariantCulture);
+        }
+        catch { }
+        Marker.position = new Vector3(x, y, z);
+        Marker.rotation = Quaternion.Euler(0f, -rot, 0f);
+        RaycastHit hit;
+        if (Physics.Raycast(Marker.position + Vector3.up * 5f, Vector3.down, out hit, 50f, 1))
+        {
+            Marker.position = hit.point;
+            float _y = Marker.eulerAngles.y;
+            Marker.up = hit.normal;
+            Marker.eulerAngles = new Vector3(Marker.eulerAngles.x, 0f, Marker.eulerAngles.z);
+            Marker.Rotate(new Vector3(0f, _y, 0f), Space.Self);
+        }
+        NISLoader.startpos = Marker.position;
+        NISLoader.startrot = Marker.rotation * Quaternion.Euler(0f, 90f, 0f);
+    }
+
     public void DrawCameraPath()
     {
         foreach (Transform rend in LineRenderers)
@@ -4367,48 +4498,74 @@ public class Main : MonoBehaviour
                     if (old != cameratrack[curcam].Item2[cursegment].unk5)
                         changed = true;
                 } catch {}
+                Vector3 absolutePos = new Vector3(cameratrack[curcam].Item2[cursegment].EyeX, cameratrack[curcam].Item2[cursegment].EyeY, cameratrack[curcam].Item2[cursegment].EyeZ);
+                /*if (cameratrack[curcam].Item2[cursegment].attributes[4] == 0x03)
+                {
+                    absolutePos = NISLoader.startpos + NISLoader.startrot * absolutePos;
+                }*/
                 try
                 {
-                    old = cameratrack[curcam].Item2[cursegment].EyeX;
+                    old = absolutePos.x;
                     cameratrack[curcam].Item2[cursegment].EyeX = float.Parse(CameraEditValues[1].text, CultureInfo.InvariantCulture);
                     if (old != cameratrack[curcam].Item2[cursegment].EyeX)
                         changed = true;
                 } catch {}
                 try
                 {
-                    old = cameratrack[curcam].Item2[cursegment].EyeZ;
+                    old = absolutePos.z;
                     cameratrack[curcam].Item2[cursegment].EyeZ = float.Parse(CameraEditValues[2].text, CultureInfo.InvariantCulture);
                     if (old != cameratrack[curcam].Item2[cursegment].EyeZ)
                         changed = true;
                 } catch {}
                 try
                 {
-                    old = cameratrack[curcam].Item2[cursegment].EyeY;
+                    old = absolutePos.y;
                     cameratrack[curcam].Item2[cursegment].EyeY = float.Parse(CameraEditValues[3].text, CultureInfo.InvariantCulture);
                     if (old != cameratrack[curcam].Item2[cursegment].EyeY)
                         changed = true;
                 } catch {}
+                /*if (cameratrack[curcam].Item2[cursegment].attributes[4] == 0x03)
+                {
+                    Vector3 eyepos = new Vector3(cameratrack[curcam].Item2[cursegment].EyeX, cameratrack[curcam].Item2[cursegment].EyeY, cameratrack[curcam].Item2[cursegment].EyeZ);
+                    eyepos = Quaternion.Inverse(NISLoader.startrot) * (eyepos - NISLoader.startpos);
+                    cameratrack[curcam].Item2[cursegment].EyeX = eyepos.x;
+                    cameratrack[curcam].Item2[cursegment].EyeZ = eyepos.z;
+                    cameratrack[curcam].Item2[cursegment].EyeY = eyepos.y;
+                }*/
+                absolutePos = new Vector3(cameratrack[curcam].Item2[cursegment].LookX, cameratrack[curcam].Item2[cursegment].LookZ, cameratrack[curcam].Item2[cursegment].LookY);
+                /*if (cameratrack[curcam].Item2[cursegment].attributes[4] == 0x03)
+                {
+                    absolutePos = NISLoader.startpos + NISLoader.startrot * absolutePos;
+                }*/
                 try
                 {
-                    old = cameratrack[curcam].Item2[cursegment].LookX;
+                    old = absolutePos.x;
                     cameratrack[curcam].Item2[cursegment].LookX = float.Parse(CameraEditValues[4].text, CultureInfo.InvariantCulture);
                     if (old != cameratrack[curcam].Item2[cursegment].LookX)
                         changed = true;
                 } catch {}
                 try
                 {
-                    old = cameratrack[curcam].Item2[cursegment].LookZ;
+                    old = absolutePos.z;
                     cameratrack[curcam].Item2[cursegment].LookZ = float.Parse(CameraEditValues[5].text, CultureInfo.InvariantCulture);
                     if (old != cameratrack[curcam].Item2[cursegment].LookZ)
                         changed = true;
                 } catch {}
                 try
                 {
-                    old = cameratrack[curcam].Item2[cursegment].LookY;
+                    old = absolutePos.y;
                     cameratrack[curcam].Item2[cursegment].LookY = float.Parse(CameraEditValues[6].text, CultureInfo.InvariantCulture);
                     if (old != cameratrack[curcam].Item2[cursegment].LookY)
                         changed = true;
                 } catch {}
+                /*if (cameratrack[curcam].Item2[cursegment].attributes[4] == 0x03)
+                {
+                    Vector3 lookpos = new Vector3(cameratrack[curcam].Item2[cursegment].LookX, cameratrack[curcam].Item2[cursegment].LookY, cameratrack[curcam].Item2[cursegment].LookZ);
+                    lookpos = Quaternion.Inverse(NISLoader.startrot) * (lookpos - NISLoader.startpos);
+                    cameratrack[curcam].Item2[cursegment].LookX = lookpos.x;
+                    cameratrack[curcam].Item2[cursegment].LookZ = lookpos.z;
+                    cameratrack[curcam].Item2[cursegment].LookY = lookpos.y;
+                }*/
                 try
                 {
                     old = cameratrack[curcam].Item2[cursegment].Tangent;
@@ -4584,6 +4741,44 @@ public class Main : MonoBehaviour
         }
     }
 
+    public Dropdown AnchorDropdown;
+    public Dropdown FNGDropdown;
+
+    public void AnchorChanged(int val)
+    {
+        switch (val)
+        {
+            case 0:
+                CameraEditFlags[4].text = 0.ToString("X");
+                break;
+            case 1:
+                CameraEditFlags[4].text = 1.ToString("X");
+                break;
+            case 2:
+                CameraEditFlags[4].text = 3.ToString("X");
+                break;
+        }
+    }
+
+    public void FNGChanged(int val)
+    {
+        switch (val)
+        {
+            case 0:
+                CameraEditFlags[10].text = 0.ToString("X");
+                break;
+            case 1:
+                CameraEditFlags[10].text = 2.ToString("X");
+                break;
+            case 2:
+                CameraEditFlags[10].text = 3.ToString("X");
+                break;
+            case 3:
+                CameraEditFlags[10].text = 4.ToString("X");
+                break;
+        }
+    }
+
     public void CameraFlagsUpdated()
     {
         if (playing || !allow_changes) return;
@@ -4619,6 +4814,39 @@ public class Main : MonoBehaviour
                     changed = true;
             }
         } catch {}
+        switch (cameratrack[curcam].Item2[cursegment].attributes[4])
+        {
+            case 0:
+                AnchorDropdown.value = 0;
+                break;
+            case 1:
+                AnchorDropdown.value = 1;
+                break;
+            case 3:
+                AnchorDropdown.value = 2;
+                break;
+            default:
+                AnchorDropdown.value = 3;
+                break;
+        }
+        switch (cameratrack[curcam].Item2[cursegment].attributes[10])
+        {
+            case 0:
+                FNGDropdown.value = 0;
+                break;
+            case 2:
+                FNGDropdown.value = 1;
+                break;
+            case 3:
+                FNGDropdown.value = 2;
+                break;
+            case 4:
+                FNGDropdown.value = 3;
+                break;
+            default:
+                FNGDropdown.value = 4;
+                break;
+        }
         GenCameraSplines();
         if (changed)
         {
@@ -4647,7 +4875,7 @@ public class Main : MonoBehaviour
     public void ToggleCameraControl()
     {
         RealtimeCameraEditActive = !RealtimeCameraEditActive;
-        CameraControlButtonText.text = RealtimeCameraEditActive ? "Press here again when you're done" : "Enable WYSIWYG camera edit mode";
+        CameraControlButtonText.text = RealtimeCameraEditActive ? "Press here again when you're done" : "Toggle camera movement";
         if (RealtimeCameraEditActive) {
             playing = false;
 
@@ -4677,6 +4905,10 @@ public class Main : MonoBehaviour
                     Transform player_car = ObjectsOnScene.ContainsKey("Car1") ? ObjectsOnScene["Car1"] : SceneRoot;
                     eyepos = player_car.position + Quaternion.Euler(0f, -90f + player_car.eulerAngles.y, 0f) * eyepos;
                     lookatpos = player_car.position + Quaternion.Euler(0f, -90f + player_car.eulerAngles.y, 0f) * lookatpos;
+                    break;
+                case 0x03:
+                    eyepos = NISLoader.startpos + NISLoader.startrot * eyepos;
+                    lookatpos = NISLoader.startpos + NISLoader.startrot * lookatpos;
                     break;
             }
             SceneCamera.transform.position = eyepos;

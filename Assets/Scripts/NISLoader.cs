@@ -814,7 +814,7 @@ public class NISLoader : MonoBehaviour
 		{
 			camrec camrec1 = new camrec();
 			camrec camrec2 = new camrec();
-			switch (camrec1.e.type)
+			switch (e.type)
 			{
 				case 0:
 					camrec1.e = new CameraTrackEntry(e.obj0.Clone());
@@ -1083,8 +1083,8 @@ public class NISLoader : MonoBehaviour
 		}
 	}
 
-	private Vector3 startpos;
-	private Quaternion startrot;
+	public static Vector3 startpos;
+	public static Quaternion startrot;
 
 	[HideInInspector] public static bool started;
 	private float startTime;
@@ -1178,6 +1178,11 @@ public class NISLoader : MonoBehaviour
 		{
 			Vector3 eyepos = spline.GetEyePos(progression);
 			Vector3 lookatpos = spline.GetLookPos(progression);
+			if (rec.e.attributes[4] == 0x03)
+			{
+				eyepos = startpos + startrot * eyepos;
+				lookatpos = startpos + startrot * lookatpos;
+			}
 			target.transform.position = eyepos;
 			target.transform.LookAt(lookatpos);
 			if (rec.e.attributes[4] == 0x00) // todo add to cxmw
@@ -1270,7 +1275,7 @@ public class NISLoader : MonoBehaviour
 		return pos.y;
 	}
 
-	public static void ApplyCarMovement(Dictionary<string, Transform> players, Animation anim, float t, bool forceY, bool absoluteIndex)
+	public static void ApplyCarMovement(Dictionary<string, Transform> players, Animation anim, float t, bool forceY, bool absoluteIndex, bool localanim)
 	{
 		string animtype = anim.name.Split('_').Last();
 		string objname = anim.GetObjectName();
@@ -1291,6 +1296,11 @@ public class NISLoader : MonoBehaviour
 			case "t":
 				Vector3 target_pos = Vector3.Lerp(new Vector3(eval.Item1[0], eval.Item1[2], eval.Item1[1]), new Vector3(eval.Item2[0], eval.Item2[2], eval.Item2[1]), eval.Item3);
 				Vector3 targetposition = new Vector3(target_pos.x, forceY ? GetGroundY(target_pos, out hit) : target_pos.y, target_pos.z);
+				if (localanim)
+				{
+					targetposition = startrot * targetposition;
+					targetposition += startpos;
+				}
 				Vector3 travel = targetposition - target.position;
 				target.position = targetposition;
 				Transform wheelparent = target.GetChild(0).Find("Wheel Transforms");
@@ -1322,7 +1332,14 @@ public class NISLoader : MonoBehaviour
 				break;
 			case "q":
 				Vector3 rot = Quaternion.Lerp(new Quaternion(eval.Item1[0], eval.Item1[1], eval.Item1[2], eval.Item1[3]), new Quaternion(eval.Item2[0], eval.Item2[1], eval.Item2[2], eval.Item2[3]), eval.Item3).eulerAngles;
-				target.eulerAngles = new Vector3(forceY ? target.eulerAngles.x : -rot.y, 90f - rot.z, forceY ? target.eulerAngles.z : rot.x);
+				if (localanim)
+				{
+					target.eulerAngles = new Vector3(forceY ? target.eulerAngles.x : -rot.y, startrot.eulerAngles.y + 90f - rot.z, forceY ? target.eulerAngles.z : rot.x);
+				}
+				else
+				{
+					target.eulerAngles = new Vector3(forceY ? target.eulerAngles.x : -rot.y, 90f - rot.z, forceY ? target.eulerAngles.z : rot.x);
+				}
 				if (forceY)
                 {
 					GetGroundY(target.position, out hit);

@@ -36,8 +36,8 @@ public class CropReplayUI : MonoBehaviour
         if (min.value > max.value)
             min.value = max.value;
         
-        NISLoader.ApplyCarMovement(main.ObjectsOnScene, replayPosition, Mathf.Clamp(timeline.value, min.value, max.value), main.forceY, true);
-        NISLoader.ApplyCarMovement(main.ObjectsOnScene, replayRotation, Mathf.Clamp(timeline.value, min.value, max.value), main.forceY, true);
+        NISLoader.ApplyCarMovement(main.ObjectsOnScene, replayPosition, Mathf.Clamp(timeline.value, min.value, max.value), main.forceY, true, (NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC);
+        NISLoader.ApplyCarMovement(main.ObjectsOnScene, replayRotation, Mathf.Clamp(timeline.value, min.value, max.value), main.forceY, true, (NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC);
         main.editorCameraMovement.target.position = main.currentlyEditingSubObject.position;
         main.editorCameraMovement.transform.position = main.editorCameraMovement.target.position - (main.editorCameraMovement.rotation * Vector3.forward * main.editorCameraMovement.currentDistance + main.editorCameraMovement.targetOffset);
     }
