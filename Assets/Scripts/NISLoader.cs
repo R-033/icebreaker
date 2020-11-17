@@ -10,7 +10,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.IO;
 using ELFSharp.ELF;
 using ELFSharp.ELF.Sections;
-using UnityEngine.Experimental.PlayerLoop;
+//using UnityEngine.Experimental.PlayerLoop;
 //using UnityScript.Scripting;
 using Common;
 using Common.Geometry.Data;
@@ -1207,10 +1207,17 @@ public class NISLoader : MonoBehaviour
 			if (dof)
 			{
 				dof.focalLength.value = target.focalLength / 2f;
-				dof.aperture.value = spline.GetDOFFStop(progression);
 				float foc = spline.GetDOFFocus(progression);
-				dof.focusDistance.value = foc;
-				dof.active = foc > 0f;
+				dof.active = foc > 0f && Main.DofOn;
+				volume.enabled = foc > 0f && Main.DofOn;
+				Camera.main.GetComponent<UnityEngine.Rendering.PostProcessing.PostProcessLayer>().enabled = foc > 0f && Main.DofOn;
+				dof.focusDistance.value = foc > 0f && Main.DofOn ? foc : 3.546f;
+				dof.aperture.value = foc > 0f && Main.DofOn ? spline.GetDOFFStop(progression) : 0.5f;
+			}
+			else
+			{
+				volume.enabled = false;
+				Camera.main.GetComponent<UnityEngine.Rendering.PostProcessing.PostProcessLayer>().enabled = false;
 			}
 		}
 	}
@@ -2179,12 +2186,12 @@ public class NISLoader : MonoBehaviour
 		return output;
 	}
 
-	public static (int, List<(CameraTrackHeader, CameraTrackEntry[])>) LoadCameraTrack(string nisname, string gamepath, bool fullpath = false)
+	public static (int, int, List<(CameraTrackHeader, CameraTrackEntry[])>) LoadCameraTrack(string nisname, string gamepath, bool fullpath = false)
 	{
 		return LookupCamera(gamepath, BinHash(nisname), fullpath);
 	}
 
-	public static (int, List<(CameraTrackHeader, CameraTrackEntry[])>) LookupCamera(string gamepath, uint NISHashNeeded, bool fullpath = false)
+	public static (int, int, List<(CameraTrackHeader, CameraTrackEntry[])>) LookupCamera(string gamepath, uint NISHashNeeded, bool fullpath = false)
 	{
 		byte[] f;
         if (fullpath)
@@ -2197,7 +2204,7 @@ public class NISLoader : MonoBehaviour
             else if (File.Exists(gamepath + path.ToUpper()))
                 f = File.ReadAllBytes(gamepath + path.ToUpper());
             else
-                return (0, new List<(CameraTrackHeader, CameraTrackEntry[])>());
+                return (0, 0, new List<(CameraTrackHeader, CameraTrackEntry[])>());
         }
 		f = DecompressJZC(f);
 		int offset = 0;
@@ -2206,7 +2213,7 @@ public class NISLoader : MonoBehaviour
 		List<(CameraTrackHeader, CameraTrackEntry[])> output = new List<(CameraTrackHeader, CameraTrackEntry[])>();
 		int _offset = 0;
         int size = 0;
-        SizeOffset = 0;
+        int SizeOffset = 0;
 		try
 		{
 			for (int i = 0; i < f.Length; i += 4)
@@ -2295,10 +2302,10 @@ public class NISLoader : MonoBehaviour
 			_offset = 0;
 			SizeOffset = 0;
 		}
-		return (_offset, output);
+		return (_offset, SizeOffset, output);
 	}
 
-    public static int SizeOffset;
+    //public static int SizeOffset;
 
 	public static uint BinHash(string k)
 	{

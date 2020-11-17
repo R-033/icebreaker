@@ -252,9 +252,11 @@ public class Main : MonoBehaviour
         forceY = enable;
     }
 
+    public static bool DofOn;
+
     public void UpdateDrawDOF(bool enable)
     {
-        Camera.main.GetComponent<UnityEngine.Rendering.PostProcessing.PostProcessVolume>().enabled = enable;
+        DofOn = enable;
     }
 
     public void UpdateGame(int num)
@@ -2015,13 +2017,14 @@ public class Main : MonoBehaviour
                     return;
             }
         }
+        int sss;
         if (usehash)
         {
-            (off, ImportCamEntries) = NISLoader.LookupCamera(filepath, hash, true);
+            (off, sss, ImportCamEntries) = NISLoader.LookupCamera(filepath, hash, true);
         }
         else
         {
-            (off, ImportCamEntries) = NISLoader.LoadCameraTrack(nisname, filepath, true);
+            (off, sss, ImportCamEntries) = NISLoader.LoadCameraTrack(nisname, filepath, true);
         }
         GameObject entry;
         ToggleGroup group = CameraTrackListImport.GetComponent<ToggleGroup>();
@@ -2142,7 +2145,7 @@ public class Main : MonoBehaviour
             anims = new List<NISLoader.Animation>();
             skeletons = new List<NISLoader.Skeleton>();
             LoggingMode = 2;
-            (cameratrack_offset, cameratrack) = NISLoader.LookupCamera(GameDirectory, hash);
+            (cameratrack_offset, SizeOffset, cameratrack) = NISLoader.LookupCamera(GameDirectory, hash);
             LoggingMode = 0;
             foreach (GameObject obj in HiddenWhenNoNIS)
                 obj.SetActive(false);
@@ -2178,7 +2181,7 @@ public class Main : MonoBehaviour
             LoggingMode = 0;
 
             LoggingMode = 2;
-            (cameratrack_offset, cameratrack) = NISLoader.LoadCameraTrack(nisname, GameDirectory);
+            (cameratrack_offset, SizeOffset, cameratrack) = NISLoader.LoadCameraTrack(nisname, GameDirectory);
             /*for (int i = 0; i < cameratrack[0].Item2.Length; i++)
             {
                 Debug.Log("entry " + i + " " + cameratrack[0].Item2[i].Time);
@@ -3710,7 +3713,7 @@ public class Main : MonoBehaviour
 
                     bool updlistpls = false;
 
-                    if (NISLoader.SizeOffset == 0)
+                    if (SizeOffset == 0)
                     {
                         updlistpls = true;
                         for (int i = 0; i < f_orig.Length; i += 4)
@@ -3718,20 +3721,20 @@ public class Main : MonoBehaviour
                             if (f[i] == 0x00 && f[i + 1] == 0xB2 && f[i + 2] == 0x03 && f[i + 3] == 0x80)
                             {
                                 i += 4;
-                                NISLoader.SizeOffset = i;
+                                SizeOffset = i;
                                 break;
                             }
                         }
-                        if (NISLoader.SizeOffset == 0)
+                        if (SizeOffset == 0)
                             throw new Exception("Can't find parent bank for camera, this may be very bad idea to save...");
                     }
 
                     if (cameratrack_offset == 0)
                     {
-                        int ccc = BitConverter.ToInt32(f_orig, NISLoader.SizeOffset);
-                        f.RemoveRange(NISLoader.SizeOffset, 4);
-                        f.InsertRange(NISLoader.SizeOffset, BitConverter.GetBytes(ccc + chunk.Count + 8));
-                        int offset = NISLoader.SizeOffset + 4 + ccc;
+                        int ccc = BitConverter.ToInt32(f_orig, SizeOffset);
+                        f.RemoveRange(SizeOffset, 4);
+                        f.InsertRange(SizeOffset, BitConverter.GetBytes(ccc + chunk.Count + 8));
+                        int offset = SizeOffset + 4 + ccc;
                         f.InsertRange(offset, new byte[] { 0x10, 0xB2, 0x03, 0x00 });
                         offset += 4;
                         f.InsertRange(offset, BitConverter.GetBytes(chunk.Count));
@@ -3741,8 +3744,8 @@ public class Main : MonoBehaviour
                     else
                     {
                         oldsize = BitConverter.ToInt32(f_orig, cameratrack_offset + 4);
-                        f.RemoveRange(NISLoader.SizeOffset, 4);
-                        f.InsertRange(NISLoader.SizeOffset, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, NISLoader.SizeOffset) + (chunk.Count - oldsize)));
+                        f.RemoveRange(SizeOffset, 4);
+                        f.InsertRange(SizeOffset, BitConverter.GetBytes(BitConverter.ToInt32(f_orig, SizeOffset) + (chunk.Count - oldsize)));
                         f.RemoveRange(cameratrack_offset + 4, 4);
                         f.InsertRange(cameratrack_offset + 4, BitConverter.GetBytes(chunk.Count));
                         f.RemoveRange(cameratrack_offset + 8, oldsize);
@@ -3762,6 +3765,8 @@ public class Main : MonoBehaviour
         
         SavedText.color = Color.white;
     }
+
+    private int SizeOffset;
 
     public InputField deltacountinp;
     public Button deltacountinpb;
