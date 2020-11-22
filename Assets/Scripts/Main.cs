@@ -1054,6 +1054,11 @@ public class Main : MonoBehaviour
 
     void Update()
     {
+        if (Input.GetKeyDown(KeyCode.F) && EventSystem.current.currentSelectedGameObject == null)
+        {
+            Screen.fullScreen = !Screen.fullScreen;
+            Debug.Log("Fullscreen is now " + (Screen.fullScreen ? "on" : "off"));
+        }
         if (!activated || helpshown) return;
         if (SavedText.color.a > 0f)
             SavedText.color = new Color(1f, 1f, 1f, SavedText.color.a - Time.deltaTime * 0.5f);
