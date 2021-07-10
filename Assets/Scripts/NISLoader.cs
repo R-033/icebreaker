@@ -1697,54 +1697,8 @@ public class NISLoader : MonoBehaviour
 				size = BitConverter.ToInt32(bytes, i);
 				i += 4;
 				start = i;
-				while (bytes[i] == 0x11 && bytes[i + 1] == 0x11 && bytes[i + 2] == 0x11 && bytes[i + 3] == 0x11)
-					i += 4;
 
-				int some_length = i + BitConverter.ToInt32(bytes, i) + 16;
-				
-				i += 16;
-				if (bytes[i] == 0x50 && bytes[i + 1] == 0x52 && bytes[i + 2] == 0x41 && bytes[i + 3] == 0x43)
-				{
-					i += 4;
-					int sym_count = BitConverter.ToInt32(bytes, i);
-					i += 4;
-					int op_count = BitConverter.ToInt32(bytes, i);
-					i += 4;
-					int prac_unk3 = BitConverter.ToInt32(bytes, i);
-					i += 4;
-
-					for (int num = 0; num < op_count; num++)
-					{
-						//int hash = BitConverter.ToInt32(bytes, i);
-						i += 4;
-						//int unk1 = BitConverter.ToInt32(bytes, i);
-						i += 4;
-						//int unk2 = BitConverter.ToInt32(bytes, i);
-						i += 4;
-						//int unk3 = BitConverter.ToInt32(bytes, i);
-						i += 4;
-					}
-
-					while (bytes[i] == 0xAA && bytes[i + 1] == 0xAA && bytes[i + 2] == 0xAA && bytes[i + 3] == 0xAA)
-						i += 4;
-
-					string[] syms = new string[sym_count];
-					for (int num = 0; num < sym_count; num++)
-					{
-						string str = TakeString(bytes, i);
-						i += str.Length + 1;
-						syms[num] = str;
-					}
-
-					while (i % 4 != 0)
-						i++;
-					while (bytes[i] == 0xAA && bytes[i + 1] == 0xAA && bytes[i + 2] == 0xAA && bytes[i + 3] == 0xAA)
-						i += 4;
-
-					
-
-				} else
-					Debug.LogError("PRAC chunk is missing");
+				FishSequencer.Read(bytes.Skip(start).Take(size).ToArray());
 
 				i = start + size;
 				while (i % 4 != 0)
