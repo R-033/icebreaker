@@ -2916,6 +2916,7 @@ public class Main : MonoBehaviour
 
     public GameObject ReplayFileSelect;
     public InputField ReplayFileSelectField;
+    public Toggle ReplaySoften;
 
     public void ReplayFileSelected()
     {
@@ -2953,22 +2954,52 @@ public class Main : MonoBehaviour
 
             Vector3 pos = new Vector3(result.posZ, result.posY, -result.posX);
 
-            if ((NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC)
+            if (ReplaySoften.isOn)
             {
-                pos = Quaternion.Inverse(NISLoader.startrot) * (pos - NISLoader.startpos);
+                var d = source[Mathf.Clamp(last - 2, 0, source.Length - 1)].Item2;
+                pos += new Vector3(d.posZ, d.posY, -d.posX);
+                d = source[Mathf.Clamp(last - 1, 0, source.Length - 1)].Item2;
+                pos += new Vector3(d.posZ, d.posY, -d.posX);
+                d = source[Mathf.Clamp(last + 1, 0, source.Length - 1)].Item2;
+                pos += new Vector3(d.posZ, d.posY, -d.posX);
+                d = source[Mathf.Clamp(last + 2, 0, source.Length - 1)].Item2;
+                pos += new Vector3(d.posZ, d.posY, -d.posX);
+                pos /= 5;
             }
 
+            /*if ((NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC)
+            {
+                pos = Quaternion.Inverse(NISLoader.startrot) * (pos - NISLoader.startpos);
+            }*/
+
             deltaPos.Add(new[] {pos.x, pos.z, pos.y});
-            Vector3 rot = new Quaternion(result.rotX, result.rotY, result.rotZ, result.rotW).eulerAngles;
+
+            Vector4 rotPrev = new Vector4(result.rotX, result.rotY, result.rotZ, result.rotW);
+
+            if (ReplaySoften.isOn)
+            {
+                var d = source[Mathf.Clamp(last - 2, 0, source.Length - 1)].Item2;
+                rotPrev += new Vector4(d.rotX, d.rotY, d.rotZ, d.rotW);
+                d = source[Mathf.Clamp(last - 1, 0, source.Length - 1)].Item2;
+                rotPrev += new Vector4(d.rotX, d.rotY, d.rotZ, d.rotW);
+                d = source[Mathf.Clamp(last + 1, 0, source.Length - 1)].Item2;
+                rotPrev += new Vector4(d.rotX, d.rotY, d.rotZ, d.rotW);
+                d = source[Mathf.Clamp(last + 2, 0, source.Length - 1)].Item2;
+                rotPrev += new Vector4(d.rotX, d.rotY, d.rotZ, d.rotW);
+                rotPrev /= 5;
+            }
+
+            Vector3 rot = new Quaternion(rotPrev.x, rotPrev.y, rotPrev.z, rotPrev.w).eulerAngles;
+
             Quaternion res = Quaternion.Euler(rot.z, -rot.x, -rot.y);
 
-            if ((NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC)
+            /*if ((NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC)
             {
                 rot = new Vector3(-res.eulerAngles.y, 90f - res.eulerAngles.z, res.eulerAngles.x);
                 res = Quaternion.Euler(rot);
                 res = Quaternion.Inverse(NISLoader.startrot) * res;
                 res = Quaternion.Euler(res.eulerAngles.z, -res.eulerAngles.x, -(res.eulerAngles.y - 90f));
-            }
+            }*/
 
             deltaRot.Add(new[] { res.x, res.y, res.z, res.w });
 
