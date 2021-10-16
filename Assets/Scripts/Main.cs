@@ -2934,38 +2934,29 @@ public class Main : MonoBehaviour
             source[i] = (t, (ReplayFrame)CoordDebug.RawDeserialize(replayData, offset, typeof(ReplayFrame)));
             offset += Marshal.SizeOf(typeof(ReplayFrame));
         }
-        int last = 0;
+        ReplayFrame result = source[0].Item2;
+        ReplayFrame result2 = source[0].Item2;
+        float lerpT = 0f;
         int curdelta = 0;
+        int last = 0;
         List<float[]> deltaPos = new List<float[]>();
         List<float[]> deltaRot = new List<float[]>();
         do
         {
             float targetTime = curdelta * (1f / 15f);
-            ReplayFrame result = source[last].Item2;
-            for (int j = last; j < deltaNum; j++)
+            for (int j = 0; j < deltaNum; j++)
             {
                 if (source[j].Item1 <= targetTime && (j >= deltaNum - 1 || source[j + 1].Item1 > targetTime))
                 {
                     result = source[j].Item2;
+                    result2 = source[j >= deltaNum - 1 ? j : (j + 1)].Item2;
+                    lerpT = j >= deltaNum - 1 ? 1f : Mathf.InverseLerp(source[j].Item1, source[j + 1].Item1, targetTime);
                     last = j;
                     break;
                 }
             }
 
-            Vector3 pos = new Vector3(result.posZ, result.posY, -result.posX);
-
-            if (ReplaySoften.isOn)
-            {
-                var d = source[Mathf.Clamp(last - 2, 0, source.Length - 1)].Item2;
-                pos += new Vector3(d.posZ, d.posY, -d.posX);
-                d = source[Mathf.Clamp(last - 1, 0, source.Length - 1)].Item2;
-                pos += new Vector3(d.posZ, d.posY, -d.posX);
-                d = source[Mathf.Clamp(last + 1, 0, source.Length - 1)].Item2;
-                pos += new Vector3(d.posZ, d.posY, -d.posX);
-                d = source[Mathf.Clamp(last + 2, 0, source.Length - 1)].Item2;
-                pos += new Vector3(d.posZ, d.posY, -d.posX);
-                pos /= 5;
-            }
+            Vector3 pos = Vector3.Lerp(new Vector3(result.posZ, result.posY, -result.posX), new Vector3(result2.posZ, result2.posY, -result2.posX), lerpT);
 
             /*if ((NISLoader.SceneType)NISLoader.SceneInfo.SceneType != NISLoader.SceneType.NIS_SCENE_LOCATION_SPECIFIC)
             {
@@ -2974,20 +2965,7 @@ public class Main : MonoBehaviour
 
             deltaPos.Add(new[] {pos.x, pos.z, pos.y});
 
-            Vector4 rotPrev = new Vector4(result.rotX, result.rotY, result.rotZ, result.rotW);
-
-            if (ReplaySoften.isOn)
-            {
-                var d = source[Mathf.Clamp(last - 2, 0, source.Length - 1)].Item2;
-                rotPrev += new Vector4(d.rotX, d.rotY, d.rotZ, d.rotW);
-                d = source[Mathf.Clamp(last - 1, 0, source.Length - 1)].Item2;
-                rotPrev += new Vector4(d.rotX, d.rotY, d.rotZ, d.rotW);
-                d = source[Mathf.Clamp(last + 1, 0, source.Length - 1)].Item2;
-                rotPrev += new Vector4(d.rotX, d.rotY, d.rotZ, d.rotW);
-                d = source[Mathf.Clamp(last + 2, 0, source.Length - 1)].Item2;
-                rotPrev += new Vector4(d.rotX, d.rotY, d.rotZ, d.rotW);
-                rotPrev /= 5;
-            }
+            Vector4 rotPrev = Vector4.Lerp(new Vector4(result.rotX, result.rotY, result.rotZ, result.rotW), new Vector4(result2.rotX, result2.rotY, result2.rotZ, result2.rotW), lerpT);
 
             Vector3 rot = new Quaternion(rotPrev.x, rotPrev.y, rotPrev.z, rotPrev.w).eulerAngles;
 
@@ -3005,6 +2983,35 @@ public class Main : MonoBehaviour
 
             curdelta++;
         } while (last < source.Length - 1);
+
+        if (ReplaySoften.isOn)
+        {
+            for (int j = 0; j < deltaPos.Count; j++)
+            {
+                int roundPos1 = (int)Mathf.Floor(j / 5f) * 5;
+                int roundPos2 = Mathf.Min(deltaPos.Count - 1, roundPos1 + 5);
+
+                var pos1 = deltaPos[roundPos1];
+                var pos2 = deltaPos[roundPos2];
+                
+                var rot1 = deltaRot[roundPos1];
+                var rot2 = deltaRot[roundPos2];
+
+                float t = Mathf.InverseLerp(roundPos1, roundPos2, j);
+
+                deltaPos[j] = new[] {
+                    Mathf.Lerp(pos1[0], pos2[0], t),
+                    Mathf.Lerp(pos1[1], pos2[1], t),
+                    Mathf.Lerp(pos1[2], pos2[2], t)
+                };
+
+                Quaternion start = new Quaternion(rot1[0], rot1[1], rot1[2], rot1[3]);
+                Quaternion end = new Quaternion(rot2[0], rot2[1], rot2[2], rot2[3]);
+                Quaternion lerp = Quaternion.Slerp(start, end, t);
+                deltaRot[j] = new[] { lerp.x, lerp.y, lerp.z, lerp.w };
+            }
+        }
+
         imreplayscript.originalPosition = EditingAnimation_t;
         imreplayscript.originalRotation = EditingAnimation_q;
         imreplayscript.replayPosition = new NISLoader.Animation();
